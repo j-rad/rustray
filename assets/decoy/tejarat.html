@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بانک تجارت - اینترنت بانک</title>
+    <style>
+        body {
+            font-family: Tahoma, sans-serif;
+            background: #e8edf2;
+            margin: 0;
+            padding: 0
+        }
+
+        .header {
+            background: #003366;
+            color: #fff;
+            padding: 12px 20px;
+            font-size: 18px
+        }
+
+        .card {
+            max-width: 440px;
+            margin: 50px auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, .12);
+            padding: 28px 32px
+        }
+
+        h2 {
+            color: #003366;
+            font-size: 16px;
+            border-bottom: 2px solid #003366;
+            padding-bottom: 8px;
+            margin-bottom: 18px
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            color: #444;
+            margin-bottom: 4px
+        }
+
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 9px;
+            border: 1px solid #bbb;
+            border-radius: 4px;
+            margin-bottom: 14px;
+            font-size: 13px
+        }
+
+        button {
+            background: #003366;
+            color: #fff;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            width: 100%;
+            cursor: pointer;
+            font-size: 14px
+        }
+
+        button:hover {
+            background: #00204d
+        }
+
+        p.note {
+            font-size: 11px;
+            color: #777;
+            text-align: center;
+            margin-top: 16px
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">بانک تجارت</div>
+    <div class="card">
+        <h2>ورود به اینترنت‌بانک</h2>
+        <form method="post" action="/auth/login">
+            <label>نام کاربری</label>
+            <input type="text" name="username" maxlength="20">
+            <label>رمز</label>
+            <input type="password" name="passwd" maxlength="24">
+            <button type="submit">ورود</button>
+        </form>
+        <p class="note">&copy; ۱۴۰۳ بانک تجارت – تمامی حقوق محفوظ است</p>
+    </div>
+</body>
+
+</html>

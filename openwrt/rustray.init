@@ -1,0 +1,29 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+STOP=10
+USE_PROCD=1
+
+PROG=/usr/bin/rustray
+CONF=/etc/rustray/config.json
+
+start_service() {
+    procd_open_instance
+    procd_set_param command "$PROG" --config "$CONF"
+    
+    # Respawn automatically if it dies
+    procd_set_param respawn ${respawn_threshold:-3600} ${respawn_timeout:-5} ${respawn_retry:-5}
+    
+    # Redirect stdout/stderr to logd
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    
+    # Security capabilities (essential for net admin/bind)
+    # procd_set_param capabilities e.g. cap_net_admin+ep
+    
+    procd_close_instance
+}
+
+reload_service() {
+    procd_send_signal rustray
+}

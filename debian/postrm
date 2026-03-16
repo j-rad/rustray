@@ -1,0 +1,41 @@
+#!/bin/bash
+# Post-removal script for RustRay Debian package
+set -e
+
+case "$1" in
+    purge)
+        # Remove user, group, and data directories on purge
+        echo "Purging RustRay data..."
+        
+        # Remove log files
+        rm -rf /var/log/rustray
+        
+        # Remove data directory
+        rm -rf /var/lib/rustray
+        
+        # Remove configuration (user must explicitly purge to remove this)
+        rm -rf /etc/rustray
+        
+        # Remove user and group
+        if getent passwd rustray >/dev/null 2>&1; then
+            deluser --system rustray || true
+        fi
+        
+        if getent group rustray >/dev/null 2>&1; then
+            delgroup --system rustray || true
+        fi
+        
+        echo "RustRay has been completely removed."
+        ;;
+    
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        # Don't remove data on these cases
+        ;;
+    
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

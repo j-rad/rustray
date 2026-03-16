@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>بانک ملت - ورود به سیستم</title>
+<style>
+body{font-family:Tahoma,sans-serif;background:#f4f4f4;margin:0;padding:0}
+.header{background:#007A3D;color:#fff;padding:12px 20px;font-size:18px}
+.container{max-width:420px;margin:60px auto;background:#fff;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.15);padding:30px}
+h2{color:#007A3D;margin-bottom:20px;font-size:16px;border-bottom:1px solid #ddd;padding-bottom:10px}
+label{display:block;margin-bottom:4px;font-size:13px;color:#333}
+input[type=text],input[type=password]{width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:4px;margin-bottom:14px;font-size:13px}
+button{background:#007A3D;color:#fff;border:none;padding:10px 24px;border-radius:4px;cursor:pointer;font-size:14px;width:100%}
+button:hover{background:#005f30}
+.footer{text-align:center;font-size:11px;color:#888;margin-top:20px}
+</style>
+</head>
+<body>
+<div class="header">بانک ملت</div>
+<div class="container">
+<h2>ورود به اینترنت‌بانک</h2>
+<form method="post" action="/login">
+<label>شماره مشتری</label>
+<input type="text" name="customerid" maxlength="12" autocomplete="off">
+<label>رمز عبور</label>
+<input type="password" name="password" maxlength="24" autocomplete="off">
+<button type="submit">ورود</button>
+</form>
+<div class="footer">کلیه حقوق محفوظ است &copy; ۱۴۰۳ بانک ملت</div>
+</div>
+</body>
+</html>

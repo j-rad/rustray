@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+package rustray.app.proxyman.command;
+option csharp_namespace = "Rustray.App.Proxyman.Command";
+option go_package = "github.com/FaezBarghasa/rustray/app/proxyman/command";
+option java_package = "com.rustray.app.proxyman.command";
+option java_multiple_files = true;
+
+import "common_protocol.proto";
+import "common_serial.proto";
+import "rustray.proto";
+
+message AddUserOperation {
+  rustray.common.protocol.User user = 1;
+}
+
+message RemoveUserOperation {
+  string email = 1;
+}
+
+message AddInboundRequest {
+  rustray.core.InboundHandlerConfig inbound = 1;
+}
+
+message AddInboundResponse {}
+
+message RemoveInboundRequest {
+  string tag = 1;
+}
+
+message RemoveInboundResponse {}
+
+message AlterInboundRequest {
+  string tag = 1;
+  rustray.common.serial.TypedMessage operation = 2;
+}
+
+message AlterInboundResponse {}
+
+message ListInboundsRequest {
+  bool isOnlyTags = 1;
+}
+
+message ListInboundsResponse {
+  repeated rustray.core.InboundHandlerConfig inbounds = 1;
+}
+
+message GetInboundUserRequest {
+  string tag = 1;
+  string email = 2;
+}
+
+message GetInboundUserResponse {
+  repeated rustray.common.protocol.User users = 1;
+}
+
+message GetInboundUsersCountResponse {
+  int64 count = 1;
+}
+
+message AddOutboundRequest {
+  rustray.core.OutboundHandlerConfig outbound = 1;
+}
+
+message AddOutboundResponse {}
+
+message RemoveOutboundRequest {
+  string tag = 1;
+}
+
+message RemoveOutboundResponse {}
+
+message AlterOutboundRequest {
+  string tag = 1;
+  rustray.common.serial.TypedMessage operation = 2;
+}
+
+message AlterOutboundResponse {}
+
+message ListOutboundsRequest {}
+
+message ListOutboundsResponse {
+  repeated rustray.core.OutboundHandlerConfig outbounds = 1;
+}
+
+service HandlerService {
+  rpc AddInbound(AddInboundRequest) returns (AddInboundResponse) {}
+
+  rpc RemoveInbound(RemoveInboundRequest) returns (RemoveInboundResponse) {}
+
+  rpc AlterInbound(AlterInboundRequest) returns (AlterInboundResponse) {}
+
+  rpc ListInbounds(ListInboundsRequest) returns (ListInboundsResponse) {}
+
+  rpc GetInboundUsers(GetInboundUserRequest) returns (GetInboundUserResponse) {}
+
+  rpc GetInboundUsersCount(GetInboundUserRequest) returns (GetInboundUsersCountResponse) {}
+
+  rpc AddOutbound(AddOutboundRequest) returns (AddOutboundResponse) {}
+
+  rpc RemoveOutbound(RemoveOutboundRequest) returns (RemoveOutboundResponse) {}
+
+  rpc AlterOutbound(AlterOutboundRequest) returns (AlterOutboundResponse) {}
+
+  rpc ListOutbounds(ListOutboundsRequest) returns (ListOutboundsResponse) {}
+}
+
+message Config {}

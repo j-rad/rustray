@@ -1,0 +1,310 @@
+    Blocking waiting for file lock on build directory
+    Checking rustray v0.1.0 (/home/jrad/RustroverProjects/rustray)
+warning: unused imports: `BufMut` and `BytesMut`
+   --> src/inbounds/socks.rs:105:17
+    |
+105 |     use bytes::{BufMut, BytesMut};
+    |                 ^^^^^^  ^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `std::net::SocketAddr`
+  --> src/protocols/flow_j.rs:27:5
+   |
+27 | use std::net::SocketAddr;
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Sink`
+   --> src/transport/flow_j_mqtt.rs:166:15
+    |
+166 | use futures::{Sink, SinkExt};
+    |               ^^^^
+
+warning: unused import: `FLOWJ_MAGIC`
+  --> src/transport/flow_j_reality.rs:11:32
+   |
+11 | use crate::protocols::flow_j::{FLOWJ_MAGIC, FlowJInboundSettings};
+   |                                ^^^^^^^^^^^
+
+warning: unused imports: `SignatureScheme`, `SupportedCipherSuite`, and `crypto::ring::cipher_suite`
+  --> src/transport/tls_camouflage.rs:17:28
+   |
+17 | use rustls::{ClientConfig, SignatureScheme, SupportedCipherSuite, crypto::ring::cipher_suite};
+   |                            ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `UNIX_EPOCH`
+  --> src/api/stats.rs:11:29
+   |
+11 | use std::time::{SystemTime, UNIX_EPOCH};
+   |                             ^^^^^^^^^^
+
+warning: unexpected `cfg` condition value: `jemalloc`
+   --> src/api/stats.rs:128:15
+    |
+128 |         #[cfg(feature = "jemalloc")]
+    |               ^^^^^^^^^^^^^^^^^^^^ help: remove the condition
+    |
+    = note: no expected values for `feature`
+    = help: consider adding `jemalloc` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: `#[warn(unexpected_cfgs)]` on by default
+
+warning: unexpected `cfg` condition value: `jemalloc`
+   --> src/api/stats.rs:135:19
+    |
+135 |         #[cfg(not(feature = "jemalloc"))]
+    |                   ^^^^^^^^^^^^^^^^^^^^ help: remove the condition
+    |
+    = note: no expected values for `feature`
+    = help: consider adding `jemalloc` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: unused import: `debug`
+  --> src/app/router/geo_loader.rs:21:15
+   |
+21 | use tracing::{debug, info, warn};
+   |               ^^^^^
+
+warning: variable does not need to be mutable
+   --> src/inbounds/socks.rs:117:23
+    |
+117 |     let (from_udp_tx, mut from_udp_rx) = mpsc::channel::<(Vec<u8>, std::net::SocketAddr)>(32);
+    |                       ----^^^^^^^^^^^
+    |                       |
+    |                       help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+  --> src/transport/reality.rs:44:9
+   |
+44 |     let mut client_hello = construct_client_hello(
+   |         ----^^^^^^^^^^^^
+   |         |
+   |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src/app/secure_storage.rs:203:43
+    |
+203 |     pub async fn save_subscription(&self, mut sub: SubscriptionModel) -> Result<String> {
+    |                                           ----^^^
+    |                                           |
+    |                                           help: remove this `mut`
+
+error[E0282]: type annotations needed
+   --> src/app/state_manager.rs:114:22
+    |
+109 | /                 storage
+110 | |                     .db
+111 | |                     .create(("app_state", "current"))
+    | |_____________________________________________________- type must be known at this point
+...
+114 |                       .context("Failed to create default app state")?;
+    |                        ^^^^^^^
+    |
+help: try using a fully qualified path to specify the expected types
+    |
+109 ~                 <std::result::Result<std::option::Option<R>, surrealdb::Error> as anyhow::Context<std::option::Option<R>, surrealdb::Error>>::context::<&str>(storage
+110 |                     .db
+111 |                     .create(("app_state", "current"))
+112 |                     .content(&default_state)
+113 ~                     .await, "Failed to create default app state")?;
+    |
+
+error[E0599]: no method named `clone` found for struct `tokio::sync::RwLockReadGuard<'_, config::Config>` in the current scope
+   --> src/app/state_manager.rs:123:34
+    |
+123 |         self.config.read().await.clone()
+    |                                  ^^^^^ method not found in `tokio::sync::RwLockReadGuard<'_, config::Config>`
+    |
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `clone`, perhaps you need to implement one of them:
+            candidate #1: `Clone`
+            candidate #2: `weak_table::traits::WeakElement`
+
+error[E0597]: `state` does not live long enough
+   --> src/app/state_manager.rs:278:24
+    |
+270 |           let mut state = self.app_state.write().await;
+    |               --------- binding `state` declared here
+...
+274 |           let _: Option<AppState> = self
+    |  ___________________________________-
+275 | |             .storage
+276 | |             .db
+277 | |             .update(("app_state", "current"))
+278 | |             .content(&*state)
+    | |________________________^^^^^- argument requires that `state` is borrowed for `'static`
+    |                          |
+    |                          borrowed value does not live long enough
+...
+283 |       }
+    |       - `state` dropped here while still borrowed
+    |
+note: requirement that the value outlives `'static` introduced here
+   --> /home/jrad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/surrealdb-2.4.0/src/api/method/update.rs:128:18
+    |
+128 |         D: Serialize + 'static,
+    |                        ^^^^^^^
+
+error[E0521]: borrowed data escapes outside of method
+   --> src/app/state_manager.rs:274:35
+    |
+266 |       pub async fn update_app_state<F>(&self, updater: F) -> Result<()>
+    |                                        -----
+    |                                        |
+    |                                        `self` is a reference that is only valid in the method body
+    |                                        let's call the lifetime of this reference `'1`
+...
+274 |           let _: Option<AppState> = self
+    |  ___________________________________^
+275 | |             .storage
+276 | |             .db
+277 | |             .update(("app_state", "current"))
+278 | |             .content(&*state)
+    | |                             ^
+    | |                             |
+    | |_____________________________`self` escapes the method body here
+    |                               argument requires that `'1` must outlive `'static`
+
+error[E0599]: no method named `clone` found for struct `tokio::sync::RwLockReadGuard<'_, config::Config>` in the current scope
+   --> src/app/state_manager.rs:311:47
+    |
+311 |         let config = self.config.read().await.clone();
+    |                                               ^^^^^ method not found in `tokio::sync::RwLockReadGuard<'_, config::Config>`
+    |
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `clone`, perhaps you need to implement one of them:
+            candidate #1: `Clone`
+            candidate #2: `weak_table::traits::WeakElement`
+
+error[E0599]: no method named `clone` found for struct `config::Config` in the current scope
+   --> src/app/state_manager.rs:384:52
+    |
+384 |         *self.config.write().await = backup.config.clone();
+    |                                                    ^^^^^ method not found in `config::Config`
+    |
+   ::: src/config.rs:9:1
+    |
+  9 | pub struct Config {
+    | ----------------- method `clone` not found for this struct
+    |
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `clone`, perhaps you need to implement one of them:
+            candidate #1: `Clone`
+            candidate #2: `weak_table::traits::WeakElement`
+
+error[E0599]: no method named `clone` found for struct `config::Config` in the current scope
+   --> src/app/state_manager.rs:428:49
+    |
+428 |         *self.config.write().await = new_config.clone();
+    |                                                 ^^^^^ method not found in `config::Config`
+    |
+   ::: src/config.rs:9:1
+    |
+  9 | pub struct Config {
+    | ----------------- method `clone` not found for this struct
+    |
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `clone`, perhaps you need to implement one of them:
+            candidate #1: `Clone`
+            candidate #2: `weak_table::traits::WeakElement`
+
+error[E0599]: no method named `is_empty` found for enum `std::option::Option<T>` in the current scope
+    --> src/app/state_manager.rs:203:28
+     |
+ 203 |         if config.inbounds.is_empty() && config.outbounds.is_empty() {
+     |                            ^^^^^^^^ method not found in `std::option::Option<Vec<Inbound>>`
+     |
+note: the method `is_empty` exists on the type `Vec<Inbound>`
+    --> /home/jrad/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs:2936:5
+     |
+2936 |     pub const fn is_empty(&self) -> bool {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: consider using `Option::expect` to unwrap the `Vec<Inbound>` value, panicking if the value is an `Option::None`
+     |
+ 203 |         if config.inbounds.expect("REASON").is_empty() && config.outbounds.is_empty() {
+     |                           +++++++++++++++++
+
+error[E0599]: no method named `is_empty` found for enum `std::option::Option<T>` in the current scope
+    --> src/app/state_manager.rs:203:59
+     |
+ 203 |         if config.inbounds.is_empty() && config.outbounds.is_empty() {
+     |                                                           ^^^^^^^^ method not found in `std::option::Option<Vec<config::Outbound>>`
+     |
+note: the method `is_empty` exists on the type `Vec<config::Outbound>`
+    --> /home/jrad/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs:2936:5
+     |
+2936 |     pub const fn is_empty(&self) -> bool {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: consider using `Option::expect` to unwrap the `Vec<config::Outbound>` value, panicking if the value is an `Option::None`
+     |
+ 203 |         if config.inbounds.is_empty() && config.outbounds.expect("REASON").is_empty() {
+     |                                                          +++++++++++++++++
+
+error[E0609]: no field `port` on type `&Vec<Inbound>`
+   --> src/app/state_manager.rs:209:24
+    |
+209 |             if inbound.port == 0 {
+    |                        ^^^^ unknown field
+
+error[E0609]: no field `tag` on type `&Vec<config::Outbound>`
+   --> src/app/state_manager.rs:216:25
+    |
+216 |             if outbound.tag.is_empty() {
+    |                         ^^^ unknown field
+
+warning: unused import: `BufMut`
+  --> src/transport/flow_j_mqtt.rs:13:18
+   |
+13 | use bytes::{Buf, BufMut, BytesMut};
+   |                  ^^^^^^
+
+warning: unused variable: `to_udp_tx`
+   --> src/inbounds/socks.rs:116:10
+    |
+116 |     let (to_udp_tx, mut to_udp_rx) = mpsc::channel::<(Vec<u8>, std::net::SocketAddr)>(32);
+    |          ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_to_udp_tx`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `from_udp_rx`
+   --> src/inbounds/socks.rs:117:23
+    |
+117 |     let (from_udp_tx, mut from_udp_rx) = mpsc::channel::<(Vec<u8>, std::net::SocketAddr)>(32);
+    |                       ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_from_udp_rx`
+
+warning: unused variable: `router`
+   --> src/protocols/trojan.rs:329:5
+    |
+329 |     router: Arc<Router>,
+    |     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_router`
+
+warning: unused variable: `c_hs_key`
+  --> src/transport/reality.rs:81:10
+   |
+81 |     let (c_hs_key, c_hs_iv) = make_traffic_key(&client_hs_secret);
+   |          ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_c_hs_key`
+
+warning: unused variable: `c_hs_iv`
+  --> src/transport/reality.rs:81:20
+   |
+81 |     let (c_hs_key, c_hs_iv) = make_traffic_key(&client_hs_secret);
+   |                    ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_c_hs_iv`
+
+warning: unused variable: `s_hs_key`
+  --> src/transport/reality.rs:82:10
+   |
+82 |     let (s_hs_key, s_hs_iv) = make_traffic_key(&server_hs_secret);
+   |          ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_s_hs_key`
+
+warning: unused variable: `s_hs_iv`
+  --> src/transport/reality.rs:82:20
+   |
+82 |     let (s_hs_key, s_hs_iv) = make_traffic_key(&server_hs_secret);
+   |                    ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_s_hs_iv`
+
+Some errors have detailed explanations: E0282, E0521, E0597, E0599, E0609.
+For more information about an error, try `rustc --explain E0282`.
+warning: `rustray` (lib) generated 20 warnings
+error: could not compile `rustray` (lib) due to 11 previous errors; 20 warnings emitted

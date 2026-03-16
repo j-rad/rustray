@@ -1,0 +1,17 @@
+config rustray 'main'
+	option enabled '1'
+	option config_file '/etc/rustray/config.json'
+	option log_level 'info'
+	option bind_addr '0.0.0.0:10085'
+	option admin_port '8080'
+	
+config rustray 'security'
+	option enable_tls '0'
+	option tls_cert_path ''
+	option tls_key_path ''
+	option admin_psk ''
+	
+config rustray 'performance'
+	option max_connections '1000'
+	option buffer_size '65536'
+	option worker_threads '2'

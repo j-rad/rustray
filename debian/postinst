@@ -1,0 +1,61 @@
+#!/bin/bash
+# Post-installation script for RustRay Debian package
+set -e
+
+# Create rustray user and group if they don't exist
+if ! getent group rustray >/dev/null 2>&1; then
+    echo "Creating rustray group..."
+    addgroup --system rustray
+fi
+
+if ! getent passwd rustray >/dev/null 2>&1; then
+    echo "Creating rustray user..."
+    adduser --system --ingroup rustray --home /var/lib/rustray \
+        --no-create-home --disabled-password --disabled-login \
+        --gecos "RustRay Proxy Server" rustray
+fi
+
+# Create necessary directories
+echo "Creating directories..."
+mkdir -p /var/lib/rustray /var/log/rustray /etc/rustray
+chown rustray:rustray /var/lib/rustray /var/log/rustray
+chmod 750 /var/lib/rustray /var/log/rustray
+chmod 755 /etc/rustray
+
+# Set permissions on config file
+if [ -f /etc/rustray/config.json ]; then
+    chown root:rustray /etc/rustray/config.json
+    chmod 640 /etc/rustray/config.json
+fi
+
+# Configure firewall if ufw is installed and active
+if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
+    echo "Configuring firewall rules..."
+    ufw allow 10085/tcp comment 'RustRay gRPC API' || true
+    ufw allow 8080/tcp comment 'RustRay Admin Panel' || true
+fi
+
+# Reload systemd daemon
+if [ -d /run/systemd/system ]; then
+    echo "Reloading systemd daemon..."
+    systemctl daemon-reload || true
+    
+    # Enable service (but don't start automatically on first install)
+    if [ "$1" = "configure" ] && [ -z "$2" ]; then
+        echo "Enabling rustray.service..."
+        systemctl enable rustray.service || true
+        echo ""
+        echo "RustRay has been installed successfully!"
+        echo ""
+        echo "Configuration file: /etc/rustray/config.json"
+        echo "Start the service: sudo systemctl start rustray"
+        echo "View logs: sudo journalctl -u rustray -f"
+        echo ""
+    else
+        # This is an upgrade, restart the service
+        echo "Restarting rustray.service..."
+        systemctl restart rustray.service || true
+    fi
+fi
+
+exit 0

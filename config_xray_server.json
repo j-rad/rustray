@@ -1,0 +1,13 @@
+{
+  "log": { "loglevel": "error" },
+  "inbounds": [{
+    "port": 10082,
+    "protocol": "vless",
+    "settings": {
+      "clients": [{ "id": "509c3132-7232-4235-9626-267926132174" }],
+      "decryption": "none"
+    },
+    "streamSettings": { "network": "tcp" }
+  }],
+  "outbounds": [{ "protocol": "freedom" }]
+}

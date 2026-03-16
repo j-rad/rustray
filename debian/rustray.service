@@ -1,0 +1,44 @@
+[Unit]
+Description=RustRay Proxy Server
+Documentation=https://edgeray.io/docs
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rustray
+Group=rustray
+ExecStart=/usr/bin/rustray --config /etc/rustray/config.json
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rustray
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/rustray /var/log/rustray
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=512
+
+# Working directory
+WorkingDirectory=/var/lib/rustray
+
+[Install]
+WantedBy=multi-user.target

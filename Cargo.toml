@@ -1,0 +1,221 @@
+[package]
+name = "rustray"
+version = "1.0.0"
+edition = "2024"
+
+[lib]
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["async_tokio"] }
+tokio-test = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "blocking", "json", "stream"] }
+arbitrary = { version = "1.3", features = ["derive"] }
+tokio = { version = "1.38.0", features = ["full", "process"] }
+digest = "0.10.7"
+actix-http = "3.9.0"
+
+[features]
+default = ["full-server"]
+minimal-server = ["actix-web", "actix-rt", "actix-service", "prost", "dep:rust-embed", "dep:mime_guess", "dep:tracing-appender"]
+# full-server includes quic by default for the server binary
+full-server = ["minimal-server", "tonic", "prost", "surrealdb", "actix-web-tonic", "quic"]
+# QUIC feature group - enables quiche, h3, and DNS-over-QUIC
+quic = ["dep:quiche", "dep:h3", "hickory-resolver/dns-over-quic"]
+jemalloc = []
+
+[dependencies]
+# --- Platform-agnostic Dependencies (Used by types, migration and web) ---
+serde = { version = "1.0.203", features = ["derive"] }
+serde_json = "1.0.117"
+uuid = { version = "1.19", features = ["v4", "serde", "js"] }
+log = "0.4"
+anyhow = "1.0"
+thiserror = "*"
+url = "2.5.0"
+base64 = "0.22"
+hex = "0.4"
+smallvec = "1.11"
+lazy_static = "1.5.0"
+futures = "0.3"
+bytes = "1"
+flate2 = "1.0"
+tar = "0.4"
+tempfile = "3"
+zip = "6.0.0"
+httparse = "1.9"
+urlencoding = "2.1.3"
+aes-gcm = "0.10.3"
+pbkdf2 = "0.12"
+sha2 = "0.10"
+# rand needs js feature for WASM
+rand = { version = "0.8", features = ["small_rng"] }
+crossbeam-queue = "0.3.12"
+percent-encoding = "2.3.2"
+arc-swap = "1.8.0"
+mdns-sd = "0.18.0"
+zstd = "0.13.3"
+rand_distr = "0.4"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+
+# --- Desktop/Mobile Only Dependencies ---
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+jemallocator = "0.5"
+libc = "0.2"
+# --- Core Async Runtime ---
+tokio = { version = "1.48.0", features = ["full", "process"] }
+tokio-stream = "0.1"
+tokio-util = { version = "0.7", features = ["compat"] }
+
+# --- gRPC & API Server ---
+tonic = { version = "0.12", optional = true }
+prost = { version = "0.13", optional = true }
+actix-web = { version = "4.8.0", default-features = false, features = ["macros", "rustls", "rustls-0_23"], optional = true }
+actix-web-tonic = { version = "1.0.0", optional = true }
+actix-rt = { version = "2.11.0", optional = true }
+actix-service = { version = "2.0.3", optional = true }
+
+# --- TLS & Crypto ---
+rustls = "0.23.35"
+tokio-rustls = "0.26.4"
+rustls-pki-types = "1.13.1"
+webpki-roots = "1.0.4"
+async-trait = "0.1"
+sha3 = "0.10"
+hmac = "0.12"
+ipnetwork = "0.20"
+ip_network = "0.4"
+ip_network_table = "0.2"
+radix_trie = "0.3"
+aho-corasick = "1.1"
+regex = "1.12"
+russh-keys = "0.49.2"
+rutls = { git = "https://github.com/FaezBarghasa/rutls-workspace", features = ["tokio"] }
+ring = "0.17.8"
+blake3 = "1.5.1"
+x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
+p256 = { version = "0.13", features = ["ecdh"] }
+hkdf = "0.12"
+subtle = "2.5"
+
+# --- QUIC & Multiplexing ---
+quiche = { version = "0.24.6", optional = true }
+h3 = { version = "0.0.8", optional = true } # For HTTP/3 masquerading
+yamux = "0.13"
+boringtun = { git = "https://github.com/cloudflare/boringtun" }
+lru = "0.16.2"
+rustls-pemfile = "2.2.0" # For parsing PEM certificates
+
+
+clap = { version = "4.5.53", features = ["derive"] }
+humantime = "2.3.0"
+dirs = "5.0"
+serde_yaml = "0.9.34"
+
+
+tracing = "0.1.43"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
+tracing-appender = { version = "0.2", optional = true }
+rust-embed = { version = "8", features = ["compression"], optional = true }
+mime_guess = { version = "2", optional = true }
+
+
+hickory-resolver = { version = "0.24.4", features = ["dns-over-https-rustls", "dns-over-quic", "webpki-roots"] }
+dashmap = "*"
+prometheus = { version = "*", features = ["process"] }
+socket2 = "*"
+tokio-tungstenite = { version = "*", default-features = false, features = ["rustls-tls-native-roots"] }
+tokio_kcp = "*"
+hyper = { version = "1.4.1", features = ["full"] }
+hyper-util = { version = "0.1", features = ["full"] }
+http-body-util = "0.1"
+http = "1.4.0"
+rumqttc = "0.25"
+md-5 = "0.10"
+parking_lot = "0.12"
+quinn = "0.11"
+fast_qr = "0.9"
+notify = "6"
+scc = "2"
+
+
+reed-solomon-erasure = "6.0"
+nix = { version = "0.29", features = ["fs"] }
+memmap2 = "0.9"
+tun-rs = { version = "2", features = ["async"] }
+smoltcp = { version = "0.11", features = ["std", "socket-tcp", "socket-udp", "socket-icmp", "proto-ipv4", "proto-ipv6", "async"] }
+surrealdb = { version = "2.1.0", features = ["kv-surrealkv"], optional = true }
+
+russh = "0.55.0"
+arti-client = { version = "0.37.0", default-features = false, features = ["tokio", "rustls", "compression"] }
+tor-rtcompat = { version = "0.37.0", default-features = false, features = ["tokio", "rustls"] }
+wgctrl = { package = "wireguard-control", version = "1.7.1" } # Placeholder, for Tailscale
+stun = "0.9.0"
+flume = "0.12.0"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+jni = "0.21"
+uniffi = { version = "0.28", features = ["tokio"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+
+[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
+mimalloc = "0.1.48"
+
+[build-dependencies]
+tonic-build = "0.12"
+
+[[bench]]
+name = "ffi_overhead"
+harness = false
+
+[[bench]]
+name = "geo_lookup"
+harness = false
+
+[[bench]]
+name = "geo_mmap_vs_vec"
+harness = false
+
+[[bench]]
+name = "utls_bench"
+harness = false
+
+[profile.release]
+strip = true
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+[[bench]]
+name = "stealth_overhead"
+harness = false
+[[bench]]
+name = "final_payload"
+harness = false
+
+[package.metadata.deb]
+name = "rustray-server"
+maintainer = "EdgeRay Team <contact@edgeray.io>"
+copyright = "2024-2026, EdgeRay Team"
+license-file = ["LICENSE", "4"]
+depends = "$auto, systemd"
+section = "net"
+priority = "optional"
+extended-description = """\
+RustRay is a high-performance proxy server featuring:
+ - Userspace TCP/IP stack with smoltcp
+ - Multi-protocol support (VLESS, Trojan, Flow-J)
+ - Mesh networking capabilities
+ - Production-grade security and observability
+ - Embedded web dashboard for remote management
+"""
+assets = [
+    ["target/release/rustray", "usr/bin/rustray", "755"],
+    ["config.example.json", "etc/rustray/config.json", "644"],
+    ["README.md", "usr/share/doc/rustray/README.md", "644"],
+    ["debian/rustray.service", "lib/systemd/system/rustray.service", "644"],
+]
+conf-files = ["/etc/rustray/config.json"]
+maintainer-scripts = "debian/"
+
+

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>دیجی‌کالا - فروشگاه اینترنتی</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        body {
+            font-family: Tahoma, sans-serif;
+            background: #f5f5f5;
+            color: #333
+        }
+
+        header {
+            background: #e4002b;
+            padding: 10px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px
+        }
+
+        header .logo {
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold
+        }
+
+        header .search {
+            flex: 1;
+            padding: 7px 12px;
+            border-radius: 4px;
+            border: none;
+            font-size: 13px
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            max-width: 1100px;
+            margin: 24px auto;
+            padding: 0 16px
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 6px;
+            padding: 14px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, .08)
+        }
+
+        .card img {
+            width: 100%;
+            height: 140px;
+            object-fit: contain;
+            margin-bottom: 8px
+        }
+
+        .card .price {
+            color: #e4002b;
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 6px
+        }
+
+        .card .name {
+            font-size: 12px;
+            color: #555;
+            line-height: 1.6
+        }
+
+        .card button {
+            margin-top: 10px;
+            background: #e4002b;
+            color: #fff;
+            border: none;
+            padding: 7px 0;
+            border-radius: 4px;
+            width: 100%;
+            cursor: pointer;
+            font-size: 13px
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #aaa;
+            font-size: 11px
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="logo">دیجی‌کالا</div>
+        <input class="search" type="text" placeholder="جستجوی محصول...">
+    </header>
+    <div class="product-grid">
+        <div class="card">
+            <div style="width:100%;height:140px;background:#eee;border-radius:4px;margin-bottom:8px"></div>
+            <div class="name">گوشی موبایل سامسونگ Galaxy A55</div>
+            <div class="price">۲۴,۵۰۰,۰۰۰ تومان</div>
+            <button>افزودن به سبد خرید</button>
+        </div>
+        <div class="card">
+            <div style="width:100%;height:140px;background:#eee;border-radius:4px;margin-bottom:8px"></div>
+            <div class="name">لپ‌تاپ اچ‌پی HP 250 G9 Core i5</div>
+            <div class="price">۳۸,۹۰۰,۰۰۰ تومان</div>
+            <button>افزودن به سبد خرید</button>
+        </div>
+        <div class="card">
+            <div style="width:100%;height:140px;background:#eee;border-radius:4px;margin-bottom:8px"></div>
+            <div class="name">هدفون بی‌سیم بوز QuietComfort 45</div>
+            <div class="price">۱۵,۲۰۰,۰۰۰ تومان</div>
+            <button>افزودن به سبد خرید</button>
+        </div>
+    </div>
+    <footer>&copy; ۱۴۰۳ دیجی‌کالا | تمام حقوق محفوظ است</footer>
+</body>
+
+</html>

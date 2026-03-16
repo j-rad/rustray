@@ -1,0 +1,25 @@
+#!/bin/bash
+# Pre-removal script for RustRay Debian package
+set -e
+
+case "$1" in
+    remove|deconfigure)
+        # Stop the service
+        if [ -d /run/systemd/system ]; then
+            echo "Stopping rustray.service..."
+            systemctl stop rustray.service || true
+            systemctl disable rustray.service || true
+        fi
+        ;;
+    
+    upgrade|failed-upgrade)
+        # Don't stop on upgrade
+        ;;
+    
+    *)
+        echo "prerm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

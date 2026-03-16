@@ -1,0 +1,26 @@
+[package]
+name = "rustray-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.rustray]
+path = ".."
+
+[[bin]]
+name = "vless_parser"
+path = "fuzz_targets/vless_parser.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "flowj_parser"
+path = "fuzz_targets/flowj_parser.rs"
+test = false
+doc = false
