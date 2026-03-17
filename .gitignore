@@ -1,0 +1,10 @@
+/target
+/fuzz/target/
+!/target/i686-linux-android/release/librustray.so
+!/target/i686-linux-android/release/deps/librustray.so
+!/target/armv7-linux-androideabi/release/librustray.so
+!/target/armv7-linux-androideabi/release/deps/librustray.so
+!/target/x86_64-linux-android/release/librustray.so
+!/target/x86_64-linux-android/release/deps/librustray.so
+!/target/aarch64-linux-android/release/librustray.so
+!/target/aarch64-linux-android/release/deps/librustray.so
