@@ -299,8 +299,7 @@ pub fn verify_chrome_fingerprint(client_hello: &[u8]) -> bool {
 
     // Size check
     let size = client_hello.len();
-    if size < chrome_fingerprint::TARGET_SIZE_MIN - 50
-        || size > chrome_fingerprint::TARGET_SIZE_MAX + 100
+    if !(chrome_fingerprint::TARGET_SIZE_MIN - 50..=chrome_fingerprint::TARGET_SIZE_MAX + 100).contains(&size)
     {
         return false;
     }

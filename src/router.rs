@@ -41,11 +41,10 @@ impl BalancerStrategy for LeastPingStrategy {
     fn select(&self, candidates: &[String], stats: &StatsManager, _tag: &str) -> Vec<String> {
         let mut sorted = candidates.to_vec();
         sorted.sort_by_key(|candidate| {
-            if let Some(s) = stats.outbound_stats.get(candidate) {
-                if s.avg_latency > 0 {
+            if let Some(s) = stats.outbound_stats.get(candidate)
+                && s.avg_latency > 0 {
                     return s.avg_latency;
                 }
-            }
             // Fallback to legacy stats if necessary
             let rtt = stats.get_stats(&format!("outbound>>{}>>observatory>>latency_ms", candidate));
             if rtt > 0 {
@@ -332,9 +331,9 @@ impl Router {
         if outbound_tag.starts_with("balancer:") {
             let balancer_tag = outbound_tag.strip_prefix("balancer:").unwrap();
             let config = self.stats_manager.config.load();
-            if let Some(routing) = &config.routing {
-                if let Some(balancers) = &routing.balancers {
-                    if let Some(b) = balancers.iter().find(|x| x.tag == balancer_tag) {
+            if let Some(routing) = &config.routing
+                && let Some(balancers) = &routing.balancers
+                    && let Some(b) = balancers.iter().find(|x| x.tag == balancer_tag) {
                         // Gather candidates
                         let mut candidates = Vec::new();
                         if let Some(outbounds) = &config.outbounds {
@@ -355,8 +354,6 @@ impl Router {
 
                         return strategy.select(&candidates, &self.stats_manager, balancer_tag);
                     }
-                }
-            }
         }
         vec![outbound_tag.to_string()]
     }
@@ -426,8 +423,8 @@ impl Router {
         }
 
         // 4. DNS / IP-On-Demand Fallback
-        if host.parse::<IpAddr>().is_err() {
-            if let Ok(ips) = self.dns_server.resolve_ip(host).await {
+        if host.parse::<IpAddr>().is_err()
+            && let Ok(ips) = self.dns_server.resolve_ip(host).await {
                 for ip in ips {
                     if let Some((idx, tag)) = inner.ip_matcher.match_ip(ip) {
                         debug!("IP-On-Demand matched: {} -> {} (Rule {})", host, tag, idx);
@@ -437,7 +434,6 @@ impl Router {
                     }
                 }
             }
-        }
 
         "direct".to_string()
     }
@@ -449,11 +445,10 @@ impl Router {
         }
 
         // Check Port
-        if let Some(port_range) = &rule.port {
-            if !self.check_port_rule(port_range, port) {
+        if let Some(port_range) = &rule.port
+            && !self.check_port_rule(port_range, port) {
                 return false;
             }
-        }
 
         // Check Domain / Regex
         if let Some(domains) = &rule.domain {
@@ -470,12 +465,11 @@ impl Router {
             if !domain_matched {
                 // Fallback scan for plain domains
                 for d in domains {
-                    if !d.starts_with("regexp:") && !d.starts_with("geosite:") {
-                        if self.check_domain_string(d, host) {
+                    if !d.starts_with("regexp:") && !d.starts_with("geosite:")
+                        && self.check_domain_string(d, host) {
                             domain_matched = true;
                             break;
                         }
-                    }
                 }
             }
 
@@ -491,17 +485,13 @@ impl Router {
         for part in port_range.split(',') {
             let part = part.trim();
             if let Some((start, end)) = part.split_once('-') {
-                if let (Ok(s), Ok(e)) = (start.parse::<u16>(), end.parse::<u16>()) {
-                    if port >= std::cmp::min(s, e) && port <= std::cmp::max(s, e) {
+                if let (Ok(s), Ok(e)) = (start.parse::<u16>(), end.parse::<u16>())
+                    && port >= std::cmp::min(s, e) && port <= std::cmp::max(s, e) {
                         return true;
                     }
-                }
-            } else {
-                if let Ok(p) = part.parse::<u16>() {
-                    if p == port {
-                        return true;
-                    }
-                }
+            } else if let Ok(p) = part.parse::<u16>()
+            && p == port {
+                return true;
             }
         }
         false

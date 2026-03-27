@@ -12,8 +12,10 @@ use tracing::info;
 
 /// Reset schedule configuration
 #[derive(Clone, Debug)]
+#[derive(Default)]
 pub enum ResetSchedule {
     /// Reset on the first of each month
+    #[default]
     Monthly,
     /// Reset every N days
     Days(u32),
@@ -23,11 +25,6 @@ pub enum ResetSchedule {
     Never,
 }
 
-impl Default for ResetSchedule {
-    fn default() -> Self {
-        ResetSchedule::Monthly
-    }
-}
 
 /// Traffic reset job configuration
 #[derive(Clone, Debug)]
@@ -72,7 +69,6 @@ impl TrafficResetJob {
         match self.config.schedule {
             ResetSchedule::Never => {
                 info!("Traffic reset is disabled");
-                return;
             }
             ResetSchedule::Days(days) => {
                 self.run_interval(Duration::from_secs(days as u64 * 86400))
@@ -143,11 +139,10 @@ impl TrafficResetJob {
         }
 
         // Persist to database
-        if let Some(db) = &self.db {
-            if let Err(e) = self.persist_reset(db).await {
+        if let Some(db) = &self.db
+            && let Err(e) = self.persist_reset(db).await {
                 tracing::error!("Failed to persist traffic reset: {}", e);
             }
-        }
 
         info!("Traffic reset complete");
     }

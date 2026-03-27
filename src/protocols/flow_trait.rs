@@ -100,8 +100,7 @@ impl<S: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for FlowStream<S> {
         if let std::task::Poll::Ready(Ok(())) = result {
             let filled = buf.filled_mut();
             if let Err(e) = self.flow.process_read(filled) {
-                return std::task::Poll::Ready(Err(io::Error::new(
-                    io::ErrorKind::Other,
+                return std::task::Poll::Ready(Err(io::Error::other(
                     e.to_string(),
                 )));
             }
@@ -123,8 +122,7 @@ impl<S: tokio::io::AsyncWrite + Unpin> tokio::io::AsyncWrite for FlowStream<S> {
         let processed = match self.flow.process_write(buf) {
             Ok(data) => data,
             Err(e) => {
-                return std::task::Poll::Ready(Err(io::Error::new(
-                    io::ErrorKind::Other,
+                return std::task::Poll::Ready(Err(io::Error::other(
                     e.to_string(),
                 )));
             }

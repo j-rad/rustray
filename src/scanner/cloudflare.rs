@@ -34,6 +34,12 @@ pub struct CloudflareScanner {
     db: Option<Surreal<Any>>,
 }
 
+impl Default for CloudflareScanner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CloudflareScanner {
     pub fn new() -> Self {
         Self {

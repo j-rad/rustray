@@ -141,7 +141,7 @@ impl TrojanInbound {
         // Read trailing CRLF
         let mut crlf = [0u8; 2];
         stream.read_exact(&mut crlf).await?;
-        if &crlf != CRLF {
+        if crlf != CRLF {
             return Err(anyhow::anyhow!("Invalid Request CRLF"));
         }
 
@@ -405,11 +405,10 @@ async fn handle_udp_relay(
                 match result {
                     Ok((addr_str, port, payload)) => {
                         let target_addr = format!("{}:{}", addr_str, port);
-                        if let Ok(sock_addr) = target_addr.parse() {
-                            if to_udp_tx.send((payload, sock_addr)).await.is_err() {
+                        if let Ok(sock_addr) = target_addr.parse()
+                            && to_udp_tx.send((payload, sock_addr)).await.is_err() {
                                 break;
                             }
-                        }
                     }
                     Err(_) => break,
                 }

@@ -60,6 +60,12 @@ pub struct MuxPool {
     sessions: Arc<DashMap<ConnectionKey, Control>>,
 }
 
+impl Default for MuxPool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MuxPool {
     pub fn new() -> Self {
         Self {

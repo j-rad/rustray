@@ -19,8 +19,18 @@ pub async fn run_grpc_server(port: u16, stats_manager: Arc<StatsManager>) -> Res
     let handler_service = HandlerServiceImpl::new(stats_manager.clone());
     let stats_service = StatsServiceImpl::new(stats_manager);
 
+    // Initialize health reporter
+    let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
+    health_reporter
+        .set_serving::<HandlerServiceServer<HandlerServiceImpl>>()
+        .await;
+    health_reporter
+        .set_serving::<StatsServiceServer<StatsServiceImpl>>()
+        .await;
+
     // Build and run the tonic server
     Server::builder()
+        .add_service(health_service)
         .add_service(HandlerServiceServer::new(handler_service))
         .add_service(StatsServiceServer::new(stats_service))
         .serve(addr)

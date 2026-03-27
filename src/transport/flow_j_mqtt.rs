@@ -1052,6 +1052,311 @@ impl StealthMqttTunnel {
 }
 
 // ============================================================================
+// MANUAL MQTT v3.1.1 PACKET CONSTRUCTION
+// ============================================================================
+
+/// Raw MQTT v3.1.1 `PUBLISH` control packet constructor.
+///
+/// Builds packets at the byte level (no external MQTT library required)
+/// for maximum control over the wire format. This is used for the
+/// Shadow Telemetry injector to produce protocol-compliant packets
+/// that pass deep packet inspection without any library fingerprinting.
+pub struct ManualMqttPacket;
+
+impl ManualMqttPacket {
+    /// Encode a variable-length field (MQTT Remaining Length encoding).
+    ///
+    /// MQTT uses a variable-length encoding where each byte encodes 7 bits
+    /// of value and bit 7 indicates continuation.
+    fn encode_remaining_length(len: usize) -> Vec<u8> {
+        let mut result = Vec::with_capacity(4);
+        let mut x = len;
+        loop {
+            let mut encoded_byte = (x % 128) as u8;
+            x /= 128;
+            if x > 0 {
+                encoded_byte |= 0x80;
+            }
+            result.push(encoded_byte);
+            if x == 0 {
+                break;
+            }
+        }
+        result
+    }
+
+    /// Construct a raw MQTT v3.1.1 PUBLISH packet.
+    ///
+    /// Fixed header format:
+    /// ```text
+    /// Byte 1: 0x30 | (DUP << 3) | (QoS << 1) | Retain
+    /// Bytes 2-5: Remaining Length (variable)
+    /// ```
+    ///
+    /// Variable header:
+    /// ```text
+    /// [Topic Length MSB][Topic Length LSB][Topic UTF-8 string]
+    /// [Packet Identifier MSB][Packet Identifier LSB] (only if QoS > 0)
+    /// ```
+    ///
+    /// Payload:
+    /// ```text
+    /// [Application message bytes]
+    /// ```
+    pub fn build_publish(topic: &str, payload: &[u8], qos: u8, retain: bool) -> Vec<u8> {
+        let topic_bytes = topic.as_bytes();
+        let topic_len = topic_bytes.len();
+
+        // Calculate remaining length
+        let mut remaining = 2 + topic_len + payload.len(); // 2 for topic length prefix
+        if qos > 0 {
+            remaining += 2; // packet identifier
+        }
+
+        let remaining_encoded = Self::encode_remaining_length(remaining);
+
+        let mut packet = Vec::with_capacity(1 + remaining_encoded.len() + remaining);
+
+        // Fixed header byte: PUBLISH = 0x30
+        let mut fixed_byte: u8 = 0x30;
+        fixed_byte |= (qos & 0x03) << 1;
+        if retain {
+            fixed_byte |= 0x01;
+        }
+        packet.push(fixed_byte);
+
+        // Remaining length
+        packet.extend_from_slice(&remaining_encoded);
+
+        // Topic length (MSB, LSB)
+        packet.push((topic_len >> 8) as u8);
+        packet.push((topic_len & 0xFF) as u8);
+
+        // Topic string
+        packet.extend_from_slice(topic_bytes);
+
+        // Packet identifier (only for QoS 1 or 2)
+        if qos > 0 {
+            let pkt_id: u16 = rand::thread_rng().gen_range(1..=65535);
+            packet.push((pkt_id >> 8) as u8);
+            packet.push((pkt_id & 0xFF) as u8);
+        }
+
+        // Payload
+        packet.extend_from_slice(payload);
+
+        packet
+    }
+
+    /// Build a MQTT v3.1.1 CONNECT packet for handshake.
+    ///
+    /// ```text
+    /// Fixed header: 0x10 | Remaining Length
+    /// Variable header: Protocol Name + Level + Connect Flags + Keep Alive
+    /// Payload: Client Identifier
+    /// ```
+    pub fn build_connect(client_id: &str, keep_alive_secs: u16) -> Vec<u8> {
+        let client_id_bytes = client_id.as_bytes();
+
+        // Variable header: "MQTT" protocol name (7 bytes) + level(1) + flags(1) + keepalive(2) = 10 bytes
+        // Payload: client ID length(2) + client ID bytes
+        let remaining = 10 + 2 + client_id_bytes.len();
+        let remaining_encoded = Self::encode_remaining_length(remaining);
+
+        let mut packet = Vec::with_capacity(1 + remaining_encoded.len() + remaining);
+
+        // Fixed header: CONNECT = 0x10
+        packet.push(0x10);
+        packet.extend_from_slice(&remaining_encoded);
+
+        // Protocol Name: "MQTT" (length-prefixed UTF-8)
+        packet.push(0x00); // Length MSB
+        packet.push(0x04); // Length LSB
+        packet.extend_from_slice(b"MQTT");
+
+        // Protocol Level: 4 (MQTT 3.1.1)
+        packet.push(0x04);
+
+        // Connect Flags: Clean Session = 1
+        packet.push(0x02);
+
+        // Keep Alive (seconds)
+        packet.push((keep_alive_secs >> 8) as u8);
+        packet.push((keep_alive_secs & 0xFF) as u8);
+
+        // Client Identifier (length-prefixed)
+        packet.push((client_id_bytes.len() >> 8) as u8);
+        packet.push((client_id_bytes.len() & 0xFF) as u8);
+        packet.extend_from_slice(client_id_bytes);
+
+        packet
+    }
+}
+
+// ============================================================================
+// GAUSSIAN SHADOW TELEMETRY
+// ============================================================================
+
+/// Gaussian-distributed shadow telemetry injector.
+///
+/// Generates fake IoT sensor data at intervals drawn from a Gaussian
+/// distribution (mean=82.5s, σ=18.75s) to produce realistic-looking
+/// traffic patterns that blend in with genuine IoT device behavior.
+pub struct GaussianShadowTelemetry {
+    /// Mean interval between shadow packets (seconds).
+    mean_interval_secs: f64,
+    /// Standard deviation of the interval (seconds).
+    stddev_secs: f64,
+    /// Monotonically increasing sequence number for realism.
+    sequence: u64,
+    /// Simulated battery level that slowly drains.
+    battery_level: f64,
+}
+
+impl GaussianShadowTelemetry {
+    /// Create with default IoT-realistic parameters.
+    pub fn new() -> Self {
+        Self {
+            mean_interval_secs: 82.5,
+            stddev_secs: 18.75,
+            sequence: 0,
+            battery_level: 100.0,
+        }
+    }
+
+    /// Create with custom timing parameters.
+    pub fn with_timing(mean_secs: f64, stddev_secs: f64) -> Self {
+        Self {
+            mean_interval_secs: mean_secs,
+            stddev_secs,
+            sequence: 0,
+            battery_level: 100.0,
+        }
+    }
+
+    /// Sample the next inter-packet delay from the Gaussian distribution.
+    pub fn next_delay(&self) -> Duration {
+        use rand_distr::{Distribution, Normal};
+        let normal = Normal::new(self.mean_interval_secs, self.stddev_secs)
+            .unwrap_or_else(|_| Normal::new(82.5, 18.75).unwrap());
+        let raw: f64 = normal.sample(&mut rand::thread_rng());
+        // Clamp to [10s, 300s] to avoid suspiciously short or long intervals
+        let clamped = raw.clamp(10.0, 300.0);
+        Duration::from_secs_f64(clamped)
+    }
+
+    /// Generate a realistic IoT telemetry JSON payload.
+    pub fn generate_payload(&mut self) -> Vec<u8> {
+        self.sequence += 1;
+
+        // Slowly drain battery (realistic IoT behavior)
+        self.battery_level = (self.battery_level - 0.001).max(10.0);
+        let battery = self.battery_level as u32;
+
+        let uptime_secs = self.sequence * 82; // ~82s per reading
+
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        // Vary the sensor type for realism
+        let sensor_types = [
+            "temperature",
+            "humidity",
+            "pressure",
+            "vibration",
+            "co2",
+            "flow",
+        ];
+        let sensor = sensor_types[self.sequence as usize % sensor_types.len()];
+
+        // Generate realistic sensor values
+        let value: f64 = match sensor {
+            "temperature" => 20.0 + rand::thread_rng().gen_range(-2.0..2.0_f64),
+            "humidity" => 45.0 + rand::thread_rng().gen_range(-5.0..5.0_f64),
+            "pressure" => 1013.25 + rand::thread_rng().gen_range(-3.0..3.0_f64),
+            "vibration" => 0.02 + rand::thread_rng().gen_range(0.0..0.05_f64),
+            "co2" => 400.0 + rand::thread_rng().gen_range(-20.0..50.0_f64),
+            _ => 12.5 + rand::thread_rng().gen_range(-1.0..1.0_f64),
+        };
+
+        format!(
+            "{{\"sensor\":\"{}\",\"v\":{:.2},\"ts\":{},\"seq\":{},\"battery\":{},\"uptime\":{},\"status\":\"ok\"}}",
+            sensor, value, ts, self.sequence, battery, uptime_secs
+        )
+        .into_bytes()
+    }
+}
+
+impl Default for GaussianShadowTelemetry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ============================================================================
+// IOT PAYLOAD FRAGMENTER
+// ============================================================================
+
+/// Fragments proxy payload into IoT-sized windows (128–1024 bytes)
+/// to match typical IoT sensor data transmission patterns.
+pub struct IoTPayloadFragmenter {
+    /// Minimum fragment size (bytes).
+    min_fragment: usize,
+    /// Maximum fragment size (bytes).
+    max_fragment: usize,
+}
+
+impl IoTPayloadFragmenter {
+    /// Create with default IoT-size windows.
+    pub fn new() -> Self {
+        Self {
+            min_fragment: 128,
+            max_fragment: 1024,
+        }
+    }
+
+    /// Create with custom fragment size range.
+    pub fn with_range(min: usize, max: usize) -> Self {
+        Self {
+            min_fragment: min.max(32),
+            max_fragment: max.max(min),
+        }
+    }
+
+    /// Fragment `data` into IoT-sized chunks.
+    pub fn fragment(&self, data: &[u8]) -> Vec<Vec<u8>> {
+        if data.is_empty() {
+            return vec![];
+        }
+
+        let mut fragments = Vec::new();
+        let mut offset = 0;
+
+        while offset < data.len() {
+            let remaining = data.len() - offset;
+            let chunk_size = if remaining <= self.max_fragment {
+                remaining
+            } else {
+                rand::thread_rng().gen_range(self.min_fragment..=self.max_fragment)
+            };
+
+            fragments.push(data[offset..offset + chunk_size].to_vec());
+            offset += chunk_size;
+        }
+
+        fragments
+    }
+}
+
+impl Default for IoTPayloadFragmenter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ============================================================================
 // TESTS
 // ============================================================================
 

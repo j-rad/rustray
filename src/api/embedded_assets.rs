@@ -10,7 +10,7 @@
 //! - SPA fallback to index.html for client-side routing
 
 #[cfg(feature = "minimal-server")]
-use rust_embed::{Embed, RustEmbed};
+use rust_embed::RustEmbed;
 
 /// Embedded static assets from the edgeray-app Wasm build.
 /// The folder path is relative to the rustray crate root.
@@ -81,13 +81,11 @@ pub fn serve_asset(req: &HttpRequest, path: &str) -> Option<HttpResponse> {
 #[cfg(feature = "minimal-server")]
 fn is_hashed_filename(path: &str) -> bool {
     // Look for pattern: name-[hash].ext where hash is 8+ hex chars
-    if let Some(stem) = path.rsplit('/').next() {
-        if let Some((name_part, _ext)) = stem.rsplit_once('.') {
-            if let Some((_, hash)) = name_part.rsplit_once('-') {
+    if let Some(stem) = path.rsplit('/').next()
+        && let Some((name_part, _ext)) = stem.rsplit_once('.')
+            && let Some((_, hash)) = name_part.rsplit_once('-') {
                 return hash.len() >= 8 && hash.chars().all(|c| c.is_ascii_hexdigit());
             }
-        }
-    }
     false
 }
 
@@ -99,7 +97,7 @@ fn base64_hash(data: &[u8]) -> String {
     let mut hasher = DefaultHasher::new();
     data.hash(&mut hasher);
     let hash = hasher.finish();
-    base64::engine::general_purpose::STANDARD.encode(&hash.to_le_bytes())[..11].to_string()
+    base64::engine::general_purpose::STANDARD.encode(hash.to_le_bytes())[..11].to_string()
 }
 
 /// Get the index.html content for SPA fallback

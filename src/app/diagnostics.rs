@@ -201,11 +201,10 @@ impl LogCollector {
     /// Add a log entry
     pub fn push(&self, entry: LogEntry) {
         // Check minimum level
-        if let Ok(min_level) = self.min_level.read() {
-            if entry.level < *min_level {
+        if let Ok(min_level) = self.min_level.read()
+            && entry.level < *min_level {
                 return;
             }
-        }
 
         self.total_entries.fetch_add(1, Ordering::Relaxed);
 
@@ -219,13 +218,11 @@ impl LogCollector {
         }
 
         // Send to FFI callback if enabled
-        if self.streaming_enabled.load(Ordering::Relaxed) {
-            if let Ok(callback) = self.ffi_callback.read() {
-                if let Some(cb) = callback.as_ref() {
+        if self.streaming_enabled.load(Ordering::Relaxed)
+            && let Ok(callback) = self.ffi_callback.read()
+                && let Some(cb) = callback.as_ref() {
                     cb(&entry.to_ffi_string());
                 }
-            }
-        }
 
         // Send to async subscribers
         if let Ok(subs) = self.subscribers.read() {

@@ -860,7 +860,7 @@ mod tests {
         };
 
         let encoded = header.encode();
-        assert!(encoded.len() > 0);
+        assert!(!encoded.is_empty());
 
         let (decoded, _) = FlowJHeader::decode(&encoded).unwrap();
         assert_eq!(decoded.version, 1);

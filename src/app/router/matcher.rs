@@ -10,6 +10,12 @@ pub struct IpMatcher {
     table: IpNetworkTable<(usize, String)>,
 }
 
+impl Default for IpMatcher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IpMatcher {
     pub fn new() -> Self {
         Self {
@@ -44,6 +50,12 @@ pub struct DomainMatcher {
     patterns: Vec<String>,
     pattern_indices: Vec<usize>,
     ac: Option<AhoCorasick>,
+}
+
+impl Default for DomainMatcher {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DomainMatcher {
@@ -167,6 +179,12 @@ impl DomainMatcher {
 pub struct PortMatcher {
     // Index: port, Value: lowest rule index
     table: Vec<Option<usize>>,
+}
+
+impl Default for PortMatcher {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PortMatcher {

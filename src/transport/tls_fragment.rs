@@ -145,7 +145,7 @@ impl AsyncWrite for FragmentStream {
         loop {
             // We use a temporary state transition to avoid mutable borrow conflicts
             // between `self.state` and `self.inner`.
-            let mut state = std::mem::replace(&mut self.state, FragmentState::Passthrough);
+            let state = std::mem::replace(&mut self.state, FragmentState::Passthrough);
 
             match state {
                 // ── Pass-through: already fragmented ──

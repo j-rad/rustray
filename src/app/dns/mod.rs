@@ -42,10 +42,10 @@ impl DnsServer {
             if let Ok(file) = File::open("/etc/resolv.conf") {
                 let reader = BufReader::new(file);
                 for line in reader.lines() {
-                    if let Ok(l) = line {
-                        if l.starts_with("nameserver ") {
-                            if let Some(ip_str) = l.split_whitespace().nth(1) {
-                                if let Ok(ip) = IpAddr::from_str(ip_str) {
+                    if let Ok(l) = line
+                        && l.starts_with("nameserver ")
+                            && let Some(ip_str) = l.split_whitespace().nth(1)
+                                && let Ok(ip) = IpAddr::from_str(ip_str) {
                                     let socket = SocketAddr::new(ip, 53);
                                     resolver_config.add_name_server(NameServerConfig::new(
                                         socket,
@@ -54,15 +54,12 @@ impl DnsServer {
                                     loaded_servers = true;
                                     debug!("DNS: Found system nameserver: {}", ip);
                                 }
-                            }
-                        }
-                    }
                 }
             }
         }
 
-        if !loaded_servers {
-            if let Some(servers) = config.servers {
+        if !loaded_servers
+            && let Some(servers) = config.servers {
                 for server_str in servers {
                     if let Ok(addr) = server_str.parse::<SocketAddr>() {
                         resolver_config.add_name_server(NameServerConfig::new(addr, Protocol::Udp));
@@ -74,7 +71,6 @@ impl DnsServer {
                     }
                 }
             }
-        }
 
         if resolver_config.name_servers().is_empty() {
             // Fallback to Google DNS if nothing configured
@@ -99,8 +95,8 @@ impl DnsServer {
         };
 
         // Spawn periodic save task if FakeDNS persistence is enabled
-        if let Some(ref fake) = fakedns {
-            if let Some(ref path) = config.fakedns.as_ref().and_then(|c| c.persist_path.clone()) {
+        if let Some(ref fake) = fakedns
+            && let Some(ref path) = config.fakedns.as_ref().and_then(|c| c.persist_path.clone()) {
                 let save_interval = config
                     .fakedns
                     .as_ref()
@@ -108,7 +104,6 @@ impl DnsServer {
                     .unwrap_or(300);
                 Self::spawn_save_task(fake.clone(), path.clone(), save_interval);
             }
-        }
 
         Ok(dns_server)
     }

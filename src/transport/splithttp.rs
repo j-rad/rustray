@@ -95,7 +95,6 @@ impl SplitHttpStream {
     /// Or just drop the pre-connected stream and let `hyper` dial everything (cleaner).
     ///
     /// Let's go with: `SplitHttpStream::connect` takes settings and dials.
-
     pub async fn connect(url: &str) -> anyhow::Result<Self> {
         let uri: http::Uri = url.parse()?;
 
@@ -128,7 +127,7 @@ impl SplitHttpStream {
                 .header("Accept", "*/*")
                 .header("Cache-Control", "no-cache")
                 .header("Connection", "keep-alive")
-                .body(http_body_util::Empty::<Bytes>::new().map_err(|e| io::Error::new(io::ErrorKind::Other, e)).boxed())
+                .body(http_body_util::Empty::<Bytes>::new().map_err(io::Error::other).boxed())
                 .expect("Failed to build GET request");
 
             match client_dl.request(req).await {
@@ -137,15 +136,14 @@ impl SplitHttpStream {
                     while let Some(frame_res) = body.frame().await {
                         match frame_res {
                             Ok(frame) => {
-                                if let Ok(data) = frame.into_data() {
-                                    if tx_download.send(Ok(data)).await.is_err() {
+                                if let Ok(data) = frame.into_data()
+                                    && tx_download.send(Ok(data)).await.is_err() {
                                         break;
                                     }
-                                }
                             }
                             Err(e) => {
                                 let _ = tx_download
-                                    .send(Err(io::Error::new(io::ErrorKind::Other, e)))
+                                    .send(Err(io::Error::other(e)))
                                     .await;
                                 break;
                             }
@@ -154,7 +152,7 @@ impl SplitHttpStream {
                 }
                 Err(e) => {
                     let _ = tx_download
-                        .send(Err(io::Error::new(io::ErrorKind::Other, e)))
+                        .send(Err(io::Error::other(e)))
                         .await;
                 }
             }

@@ -1,6 +1,5 @@
 use bytes::BytesMut;
 use criterion::{Criterion, criterion_group, criterion_main};
-use rustray::protocols::flow_trait::Flow;
 use rustray::protocols::vless_vision::VisionFlow;
 
 fn bench_vision_padding(c: &mut Criterion) {

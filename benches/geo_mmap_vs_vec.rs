@@ -70,7 +70,7 @@ fn benchmark_geo_loading(c: &mut Criterion) {
     let test_file = test_paths
         .iter()
         .find(|p| Path::new(p).exists())
-        .map(|p| Path::new(p));
+        .map(Path::new);
 
     if let Some(path) = test_file {
         let file_size = fs::metadata(path).map(|m| m.len()).unwrap_or(0);

@@ -3,7 +3,6 @@ use crate::app::stats::StatsManager;
 use crate::config::Inbound;
 use crate::config::{RealityClientConfig, RealityServerConfig};
 use crate::error::Result;
-use crate::protocols::stealth::ProbeTrap;
 use crate::router::Router;
 use crate::transport::BoxedStream;
 use aes_gcm::aead::consts::U12;
@@ -90,7 +89,7 @@ pub async fn connect(
     let shared_secret = client_static_secret.diffie_hellman(&PublicKey::from(server_pub_key));
 
     let (early_prk, _) = Hkdf::<Sha256>::extract(None, &[0u8; 0]);
-    let empty_hash = Sha256::digest(&[]);
+    let empty_hash = Sha256::digest([]);
     let derived_early = derive_secret(&early_prk, b"derived", &empty_hash);
     let (handshake_prk, _) =
         Hkdf::<Sha256>::extract(Some(&derived_early), shared_secret.as_bytes());
@@ -373,8 +372,7 @@ pub async fn listen(
                         if let Some(inbound) = inbounds.iter().find(|i| i.protocol == "vless") {
                             if let Some(crate::config::InboundSettings::Vless(vless_settings)) =
                                 &inbound.settings
-                            {
-                                if let Err(e) = crate::protocols::vless::handle_inbound(
+                                && let Err(e) = crate::protocols::vless::handle_inbound(
                                     router.clone(),
                                     stats.clone(),
                                     boxed_stream,
@@ -385,7 +383,6 @@ pub async fn listen(
                                 {
                                     warn!("VLESS handler error: {}", e);
                                 }
-                            }
                         } else {
                             warn!("REALITY: No VLESS inbound found to handle stream.");
                         }
@@ -490,7 +487,7 @@ async fn perform_server_handshake(
     let shared_secret = server_static_secret.diffie_hellman(&client_public);
 
     let (early_prk, _) = Hkdf::<Sha256>::extract(None, &[0u8; 0]);
-    let empty_hash = Sha256::digest(&[]);
+    let empty_hash = Sha256::digest([]);
     let derived_early = derive_secret(&early_prk, b"derived", &empty_hash);
 
     let (handshake_prk, _) =
@@ -520,15 +517,15 @@ async fn perform_server_handshake(
     let mut server_handshake_traffic = BytesMut::new();
 
     let enc_ext = [0x08, 0x00, 0x00, 0x02, 0x00, 0x00];
-    transcript.update(&enc_ext);
+    transcript.update(enc_ext);
     server_handshake_traffic.put_slice(&enc_ext);
 
     let cert_msg = [0x0b, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00];
-    transcript.update(&cert_msg);
+    transcript.update(cert_msg);
     server_handshake_traffic.put_slice(&cert_msg);
 
     let cv_data = [0x0f, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00];
-    transcript.update(&cv_data);
+    transcript.update(cv_data);
     server_handshake_traffic.put_slice(&cv_data);
 
     let finished_key = derive_secret(&server_hs_secret, b"finished", &[]);
@@ -807,13 +804,12 @@ fn extract_handshake_params_robust(client_hello: &[u8]) -> Option<([u8; 32], [u8
                     u16::from_be_bytes([client_hello[k_idx + 2], client_hello[k_idx + 3]]) as usize;
                 k_idx += 4;
 
-                if group == 0x001d {
-                    if k_len == 32 && k_idx + 32 <= k_end {
+                if group == 0x001d
+                    && k_len == 32 && k_idx + 32 <= k_end {
                         let mut key = [0u8; 32];
                         key.copy_from_slice(&client_hello[k_idx..k_idx + 32]);
                         return Some((random, key));
                     }
-                }
                 k_idx += k_len;
             }
         }
@@ -932,7 +928,7 @@ impl tokio::io::AsyncRead for RealityStream {
             match Pin::new(&mut this.inner).poll_read(cx, &mut read_buf) {
                 Poll::Ready(Ok(())) => {
                     if read_buf.filled().is_empty() {
-                        if !this.incomplete_in.is_empty() {}
+                        this.incomplete_in.is_empty();
                         return Poll::Ready(Ok(()));
                     }
                     this.incomplete_in.extend_from_slice(read_buf.filled());

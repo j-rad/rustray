@@ -222,8 +222,8 @@ pub async fn handle_inbound(
     let req_key: [u8; 16] = body_key_bytes.as_ref().try_into().unwrap();
     let req_iv: [u8; 16] = body_iv_bytes.as_ref().try_into().unwrap();
 
-    let resp_key = Md5::digest(&req_key).into();
-    let resp_iv = Md5::digest(&req_iv).into();
+    let resp_key = Md5::digest(req_key).into();
+    let resp_iv = Md5::digest(req_iv).into();
 
     let vmess_stream = VmessStream::new(stream, req_key, req_iv, resp_key, resp_iv);
 
@@ -525,7 +525,7 @@ impl AsyncWrite for VmessStream {
 
         let enc_len = cipher
             .encrypt(nonce, len_bytes.as_ref())
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Encrypt Len Failed"))?;
+            .map_err(|_| std::io::Error::other("Encrypt Len Failed"))?;
 
         this.write_buffer.extend_from_slice(&enc_len);
 
@@ -535,7 +535,7 @@ impl AsyncWrite for VmessStream {
 
         let enc_body = cipher
             .encrypt(nonce, chunk_data)
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Encrypt Body Failed"))?;
+            .map_err(|_| std::io::Error::other("Encrypt Body Failed"))?;
 
         this.write_buffer.extend_from_slice(&enc_body);
 
@@ -670,8 +670,8 @@ impl Outbound for VmessOutbound {
         let req_key = body_key;
         let req_iv = body_iv;
 
-        let resp_key = Md5::digest(&req_key).into();
-        let resp_iv = Md5::digest(&req_iv).into();
+        let resp_key = Md5::digest(req_key).into();
+        let resp_iv = Md5::digest(req_iv).into();
 
         // We write encrypted REQUEST (Enc_key = req_key)
         // We read encrypted RESPONSE (Dec_key = resp_key)
@@ -697,13 +697,13 @@ fn derive_cmd_key_iv(uuid_bytes: &[u8], timestamp: u64) -> ([u8; 16], [u8; 12]) 
 
     let mut key_hasher = Md5::new();
     Digest::update(&mut key_hasher, uuid_bytes);
-    Digest::update(&mut key_hasher, &timestamp.to_be_bytes());
+    Digest::update(&mut key_hasher, timestamp.to_be_bytes());
     let key_digest = key_hasher.finalize();
 
     let mut iv_hasher = Md5::new();
-    Digest::update(&mut iv_hasher, &key_digest);
+    Digest::update(&mut iv_hasher, key_digest);
     Digest::update(&mut iv_hasher, uuid_bytes);
-    Digest::update(&mut iv_hasher, &timestamp.to_be_bytes());
+    Digest::update(&mut iv_hasher, timestamp.to_be_bytes());
     let iv_digest = iv_hasher.finalize();
 
     let mut key = [0u8; 16];

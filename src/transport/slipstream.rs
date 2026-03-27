@@ -200,13 +200,11 @@ impl SlipstreamTunnel {
                                 continue;
                             }
                             let packet = &buf_real[..len];
-                            if let Some(payload) = DnsResponse::parse(packet).get_payload() {
-                                if let Some(addr) = quinn_addr {
-                                    if let Err(e) = proxy.send_to(&payload, addr).await {
+                            if let Some(payload) = DnsResponse::parse(packet).get_payload()
+                                && let Some(addr) = quinn_addr
+                                    && let Err(e) = proxy.send_to(&payload, addr).await {
                                         debug!("Failed to forward to Quinn: {}", e);
                                     }
-                                }
-                            }
                         }
                         Err(e) => {
                             error!("Real socket error: {}", e);

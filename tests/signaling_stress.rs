@@ -49,7 +49,7 @@ async fn test_signaling_stress_100_nodes() {
     .expect("Failed to listen")
     .run();
 
-    let server_handle = tokio::spawn(server);
+    let _server_handle = tokio::spawn(server);
 
     // Give server a moment
     tokio::time::sleep(Duration::from_millis(100)).await;

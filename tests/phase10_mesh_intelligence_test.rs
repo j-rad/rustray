@@ -1,5 +1,4 @@
 // tests/phase10_mesh_intelligence_test.rs
-use rustray::app::dns::DnsServer;
 use rustray::app::mesh::health::MeshHealthMonitor;
 use rustray::app::stats::{DpiState, StatsManager};
 use rustray::config::Config;

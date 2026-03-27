@@ -126,8 +126,8 @@ impl LogGuard {
         let mut files = Vec::new();
         if let Ok(entries) = std::fs::read_dir(&self.config.log_dir) {
             for entry in entries.flatten() {
-                if let Ok(metadata) = entry.metadata() {
-                    if metadata.is_file() {
+                if let Ok(metadata) = entry.metadata()
+                    && metadata.is_file() {
                         let name = entry.file_name().to_string_lossy().to_string();
                         if name.starts_with(&self.config.file_prefix) {
                             files.push(LogFileInfo {
@@ -138,7 +138,6 @@ impl LogGuard {
                             });
                         }
                     }
-                }
             }
         }
         files.sort_by(|a, b| b.modified.cmp(&a.modified));
@@ -175,14 +174,12 @@ impl LogGuard {
 
         let mut deleted = 0u32;
         for file in self.list_log_files() {
-            if let Some(modified) = file.modified {
-                if modified < cutoff {
-                    if std::fs::remove_file(&file.path).is_ok() {
+            if let Some(modified) = file.modified
+                && modified < cutoff
+                    && std::fs::remove_file(&file.path).is_ok() {
                         deleted += 1;
                         tracing::info!("Deleted old log file: {}", file.name);
                     }
-                }
-            }
         }
         Ok(deleted)
     }

@@ -124,8 +124,8 @@ pub async fn list_users(
             let mut users = Vec::new();
             for inbound in inbounds {
                 let tag = inbound.get("tag").and_then(|v| v.as_str()).unwrap_or("");
-                if let Some(settings) = inbound.get("settings") {
-                    if let Some(clients) = settings.get("clients").and_then(|c| c.as_array()) {
+                if let Some(settings) = inbound.get("settings")
+                    && let Some(clients) = settings.get("clients").and_then(|c| c.as_array()) {
                         for client in clients {
                             let user = UserDto {
                                 id: client
@@ -160,7 +160,6 @@ pub async fn list_users(
                             users.push(user);
                         }
                     }
-                }
             }
 
             let total = users.len() as u64;
@@ -198,8 +197,8 @@ pub async fn get_user(
 
             for inbound in inbounds {
                 let tag = inbound.get("tag").and_then(|v| v.as_str()).unwrap_or("");
-                if let Some(settings) = inbound.get("settings") {
-                    if let Some(clients) = settings.get("clients").and_then(|c| c.as_array()) {
+                if let Some(settings) = inbound.get("settings")
+                    && let Some(clients) = settings.get("clients").and_then(|c| c.as_array()) {
                         for client in clients {
                             let id = client.get("id").and_then(|v| v.as_str()).unwrap_or("");
                             if id == user_id {
@@ -233,7 +232,6 @@ pub async fn get_user(
                             }
                         }
                     }
-                }
             }
 
             HttpResponse::NotFound().json(serde_json::json!({"error": "User not found"}))

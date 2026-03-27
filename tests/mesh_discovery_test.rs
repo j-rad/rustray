@@ -3,20 +3,18 @@
 //! Tests NAT traversal, peer signaling, and hole punching scenarios
 //! including symmetric vs cone NAT simulation.
 
-use rand::rngs::OsRng;
 use rustray::api::signaling::{
-    EncryptedSignal, PeerInfo, PeerJoinSignal, PeerSignal, SignalingService,
+    PeerSignal, SignalingService,
     determine_connection_strategy,
 };
 use rustray::app::reverse::nat::{
     ConnectionStrategy, HolePunchCoordinator, NatInfo, NatType, StunClient,
 };
 use rustray::app::reverse::{FlowJCarrier, PeerCarrier, ReverseManager, TunnelCarrier};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use x25519_dalek::{PublicKey, StaticSecret};
 
 // ============================================================================
 // NAT Detection Tests
@@ -283,7 +281,7 @@ async fn test_encryption_failure_unknown_peer() {
 
 #[tokio::test]
 async fn test_hole_punch_coordinator_creation() {
-    let coordinator = HolePunchCoordinator::new().with_attempts(20);
+    let _coordinator = HolePunchCoordinator::new().with_attempts(20);
     // Coordinator is created successfully
     assert!(true);
 }
@@ -524,7 +522,7 @@ async fn test_full_mesh_discovery_flow() {
 
 #[tokio::test]
 async fn test_port_prediction_for_symmetric_nat() {
-    let nat_info = Arc::new(RwLock::new(NatInfo {
+    let _nat_info = Arc::new(RwLock::new(NatInfo {
         nat_type: NatType::Symmetric,
         public_ip: Some("1.2.3.4:10000".parse().unwrap()),
         local_ip: Some(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1))),

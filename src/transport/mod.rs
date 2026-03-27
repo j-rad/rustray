@@ -10,8 +10,13 @@ use tokio::net::TcpStream;
 // use tracing::debug;
 
 // --- Modules ---
+pub mod brutal_cc;
 pub mod db_mimic;
+pub mod desync;
+pub mod dns_codec;
+pub mod dns_tunnel;
 pub mod ech;
+pub mod flow_j_brutal;
 pub mod flow_j_cdn;
 pub mod flow_j_fec;
 pub mod flow_j_mqtt;
@@ -37,6 +42,7 @@ pub mod tls;
 pub mod tls_camouflage;
 pub mod tls_fragment;
 pub mod tproxy;
+pub mod udp_fallback;
 pub mod utls;
 pub mod websocket;
 

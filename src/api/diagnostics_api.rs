@@ -41,7 +41,7 @@ pub async fn get_diagnostic_report() -> HttpResponse {
     // 3. NFTables
     #[cfg(target_os = "linux")]
     {
-        if let Ok(output) = Command::new("nft").args(&["list", "ruleset"]).output() {
+        if let Ok(output) = Command::new("nft").args(["list", "ruleset"]).output() {
             let _ = zip.start_file("nftables.conf", options);
             let _ = zip.write_all(&output.stdout);
         }

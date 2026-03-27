@@ -113,7 +113,7 @@ impl StateManager {
         F: FnOnce(&mut Config) -> Result<()>,
     {
         let mut config = self.config.write().await;
-        updater(&mut *config)?;
+        updater(&mut config)?;
 
         // Persist to file
         self.save_config_to_file(&config).await?;
@@ -248,8 +248,8 @@ impl StateManager {
     /// Validate configuration
     fn validate_config(&self, config: &Config) -> Result<()> {
         // Check for required fields
-        let has_inbounds = config.inbounds.as_ref().map_or(false, |v| !v.is_empty());
-        let has_outbounds = config.outbounds.as_ref().map_or(false, |v| !v.is_empty());
+        let has_inbounds = config.inbounds.as_ref().is_some_and(|v| !v.is_empty());
+        let has_outbounds = config.outbounds.as_ref().is_some_and(|v| !v.is_empty());
         if !has_inbounds && !has_outbounds {
             return Err(anyhow!("Config must have at least one inbound or outbound"));
         }
@@ -286,8 +286,8 @@ impl StateManager {
 
                 match tokio::fs::metadata(&self.config_path).await {
                     Ok(metadata) => {
-                        if let Ok(modified) = metadata.modified() {
-                            if modified > last_modified {
+                        if let Ok(modified) = metadata.modified()
+                            && modified > last_modified {
                                 info!("Config file changed, reloading...");
                                 match self.reload_config().await {
                                     Ok(_) => {
@@ -299,7 +299,6 @@ impl StateManager {
                                     }
                                 }
                             }
-                        }
                     }
                     Err(e) => {
                         warn!("Failed to check config file: {}", e);
@@ -322,7 +321,7 @@ impl StateManager {
         F: FnOnce(&mut AppState) -> Result<()>,
     {
         let mut state = self.app_state.write().await;
-        updater(&mut *state)?;
+        updater(&mut state)?;
 
         // Clone state for persistence to avoid lifetime issues
         let state_for_db = state.clone();

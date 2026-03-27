@@ -128,7 +128,7 @@ impl BrutalCongestion {
     pub fn new(upload_mbps: u64) -> Self {
         let target_rate_bps = upload_mbps * 1_000_000 / 8; // Convert Mbps to bytes/s
         let initial_cwnd = std::cmp::max(
-            (target_rate_bps * 100 / 1000) as u64, // 100ms of data
+            target_rate_bps * 100 / 1000, // 100ms of data
             BRUTAL_MIN_CWND * 1500,                // Minimum of 4 packets
         );
 
@@ -512,12 +512,11 @@ impl<S: AsyncRead + Unpin> AsyncRead for BrutalStreamWrapper<S> {
         let poll = Pin::new(&mut self.inner).poll_read(cx, buf);
 
         // If we have obfuscation, deobfuscate
-        if let Poll::Ready(Ok(())) = &poll {
-            if let Some(ref obfs) = self.obfs {
+        if let Poll::Ready(Ok(())) = &poll
+            && let Some(ref obfs) = self.obfs {
                 let filled = buf.filled_mut();
                 obfs.deobfuscate(filled);
             }
-        }
 
         poll
     }

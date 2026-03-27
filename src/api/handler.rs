@@ -310,9 +310,7 @@ impl HandlerService for HandlerServiceImpl {
 
         let config = self.stats_manager.config.load();
         let inbounds = config
-            .inbounds
-            .as_ref()
-            .map(|v| v.clone())
+            .inbounds.clone()
             .unwrap_or_default();
 
         // Convert internal Inbound to proto InboundHandlerConfig
@@ -372,11 +370,10 @@ impl HandlerService for HandlerServiceImpl {
             match settings {
                 InboundSettings::Vless(cfg) => {
                     for client in &cfg.clients {
-                        if let Some(ref filter) = email_filter {
-                            if client.email.as_deref() != Some(filter.as_str()) {
+                        if let Some(ref filter) = email_filter
+                            && client.email.as_deref() != Some(filter.as_str()) {
                                 continue;
                             }
-                        }
                         let account_json = serde_json::to_vec(&client).unwrap_or_default();
                         users.push(crate::api::rustray::common::protocol::User {
                             level: client.level.unwrap_or(0),
@@ -390,11 +387,10 @@ impl HandlerService for HandlerServiceImpl {
                 }
                 InboundSettings::Vmess(cfg) => {
                     for client in &cfg.clients {
-                        if let Some(ref filter) = email_filter {
-                            if client.email.as_deref() != Some(filter.as_str()) {
+                        if let Some(ref filter) = email_filter
+                            && client.email.as_deref() != Some(filter.as_str()) {
                                 continue;
                             }
-                        }
                         let account_json = serde_json::to_vec(&client).unwrap_or_default();
                         users.push(crate::api::rustray::common::protocol::User {
                             level: client.level.unwrap_or(0),
@@ -408,11 +404,10 @@ impl HandlerService for HandlerServiceImpl {
                 }
                 InboundSettings::Trojan(cfg) => {
                     for client in &cfg.clients {
-                        if let Some(ref filter) = email_filter {
-                            if client.email.as_deref() != Some(filter.as_str()) {
+                        if let Some(ref filter) = email_filter
+                            && client.email.as_deref() != Some(filter.as_str()) {
                                 continue;
                             }
-                        }
                         let account_json = serde_json::to_vec(&client).unwrap_or_default();
                         users.push(crate::api::rustray::common::protocol::User {
                             level: client.level.unwrap_or(0),
@@ -599,9 +594,7 @@ impl HandlerService for HandlerServiceImpl {
     ) -> Result<Response<ListOutboundsResponse>, Status> {
         let config = self.stats_manager.config.load();
         let outbounds = config
-            .outbounds
-            .as_ref()
-            .map(|v| v.clone())
+            .outbounds.clone()
             .unwrap_or_default();
 
         let proto_outbounds: Vec<crate::api::rustray::core::OutboundHandlerConfig> = outbounds

@@ -53,7 +53,7 @@ pub fn create_tproxy_socket(addr: &SocketAddr, ipv6: bool) -> Result<tokio::net:
     }
 
     socket.set_nonblocking(true)?;
-    socket.bind(&addr.clone().into())?;
+    socket.bind(&(*addr).into())?;
 
     let udp = tokio::net::UdpSocket::from_std(socket.into())?;
     Ok(udp)

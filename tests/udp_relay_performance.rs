@@ -13,7 +13,6 @@
 //! - Memory leak detection
 //! - Concurrent session handling
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
@@ -29,7 +28,7 @@ use tokio::time::{sleep, timeout};
 async fn test_udp_echo_basic() {
     // Test basic UDP echo functionality
     let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
-    let local_addr = socket.local_addr().unwrap();
+    let _local_addr = socket.local_addr().unwrap();
 
     // Spawn echo server
     let server_socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
@@ -239,7 +238,7 @@ async fn test_udp_memory_usage() {
     // Test that memory usage doesn't grow unbounded with many sessions
     // This is a smoke test - real leak detection requires tools like valgrind
 
-    let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+    let _socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
     let server_socket = Arc::new(UdpSocket::bind("127.0.0.1:0").await.unwrap());
     let server_addr = server_socket.local_addr().unwrap();
 

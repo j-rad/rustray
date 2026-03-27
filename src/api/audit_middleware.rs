@@ -104,8 +104,8 @@ impl AuditStore {
             .entries
             .iter()
             .filter(|e| {
-                let user_match = user_id.map_or(true, |u| e.user_id == u);
-                let action_match = action.map_or(true, |a| e.action.contains(a));
+                let user_match = user_id.is_none_or(|u| e.user_id == u);
+                let action_match = action.is_none_or(|a| e.action.contains(a));
                 user_match && action_match
             })
             .map(|e| e.value().clone())

@@ -148,7 +148,7 @@ static GLOBAL_COLLECTOR: std::sync::OnceLock<LogCollector> = std::sync::OnceLock
 
 /// Initialize the global log collector
 pub fn init_log_collector() -> LogCollector {
-    GLOBAL_COLLECTOR.get_or_init(|| LogCollector::new()).clone()
+    GLOBAL_COLLECTOR.get_or_init(LogCollector::new).clone()
 }
 
 /// Get the global log collector

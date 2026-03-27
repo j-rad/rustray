@@ -21,6 +21,7 @@ use sha2::Sha256;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use base64::{Engine as _, engine::general_purpose};
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -134,8 +135,8 @@ impl SessionStore {
         let signature = mac.finalize().into_bytes();
         Ok(format!(
             "{}.{}",
-            base64::encode(&payload),
-            base64::encode(&signature)
+            general_purpose::STANDARD.encode(&payload),
+            general_purpose::STANDARD.encode(signature)
         ))
     }
 
@@ -145,7 +146,7 @@ impl SessionStore {
             HmacSha256::new_from_slice(&self.secret_key).map_err(|_| AuthError::InternalError)?;
         mac.update(payload.as_bytes());
         let signature = mac.finalize().into_bytes();
-        Ok(base64::encode(&signature))
+        Ok(general_purpose::STANDARD.encode(signature))
     }
 }
 
@@ -251,8 +252,7 @@ where
 
         let is_authenticated = if let Some(auth_val) = auth_header {
             if let Ok(auth_str) = auth_val.to_str() {
-                if auth_str.starts_with("Bearer ") {
-                    let token = &auth_str[7..];
+                if let Some(token) = auth_str.strip_prefix("Bearer ") {
                     self.config.session_store.validate_token(token).is_ok()
                 } else {
                     false
@@ -352,14 +352,11 @@ pub async fn refresh(
 
 /// Logout endpoint - revokes session
 pub async fn logout(req: HttpRequest, config: web::Data<Arc<AuthConfig>>) -> HttpResponse {
-    if let Some(auth_val) = req.headers().get(header::AUTHORIZATION) {
-        if let Ok(auth_str) = auth_val.to_str() {
-            if auth_str.starts_with("Bearer ") {
-                let token = &auth_str[7..];
+    if let Some(auth_val) = req.headers().get(header::AUTHORIZATION)
+        && let Ok(auth_str) = auth_val.to_str()
+            && let Some(token) = auth_str.strip_prefix("Bearer ") {
                 config.session_store.revoke_session(token);
             }
-        }
-    }
     HttpResponse::Ok().json(serde_json::json!({"status": "logged_out"}))
 }
 

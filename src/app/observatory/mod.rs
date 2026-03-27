@@ -94,7 +94,7 @@ fn parse_duration(s: &str) -> Option<std::time::Duration> {
     let mut num = String::new();
     let mut unit = String::new();
     for c in s.chars() {
-        if c.is_digit(10) {
+        if c.is_ascii_digit() {
             num.push(c);
         } else {
             unit.push(c);

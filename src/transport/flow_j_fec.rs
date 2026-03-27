@@ -66,7 +66,7 @@ impl FecEncoder {
 
         // Calculate shard size to fit data
         let data_len = data.len();
-        let shard_size = (data_len + self.data_shards - 1) / self.data_shards;
+        let shard_size = data_len.div_ceil(self.data_shards);
         let shard_size = shard_size.max(1).min(MAX_SHARD_SIZE);
 
         // Create data shards with padding
@@ -182,12 +182,11 @@ impl FecDecoder {
         }
 
         // Try to decode if we have enough shards
-        if group.received >= group.data_shards {
-            if let Some(data) = self.try_decode(seq) {
+        if group.received >= group.data_shards
+            && let Some(data) = self.try_decode(seq) {
                 self.pending.remove(&seq);
                 return Some(data);
             }
-        }
 
         // Cleanup old groups
         self.cleanup_expired();

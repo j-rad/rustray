@@ -144,10 +144,12 @@ impl ServerConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum RoutingMode {
     /// Proxy all traffic
     Global,
     /// Bypass LAN and private IP ranges
+    #[default]
     BypassLan,
     /// Bypass LAN and mainland China (requires GeoIP/GeoSite data)
     BypassMainland,
@@ -157,24 +159,16 @@ pub enum RoutingMode {
     Rule,
 }
 
-impl Default for RoutingMode {
-    fn default() -> Self {
-        RoutingMode::BypassLan
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum PerAppMode {
+    #[default]
     Global,
     Whitelist,
     Blacklist,
 }
 
-impl Default for PerAppMode {
-    fn default() -> Self {
-        PerAppMode::Global
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct TunnelConfig {

@@ -4,7 +4,7 @@
 //! and relay fallback for scenarios where direct connection is not possible.
 
 use crate::api::signaling::{
-    PeerJoinReceiver, PeerJoinSignal, SignalingService, determine_connection_strategy,
+    PeerJoinReceiver, determine_connection_strategy,
 };
 use crate::app::reverse::session::SessionToken;
 use crate::error::Result;
@@ -16,9 +16,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::AsyncReadExt;
 use tokio::net::UdpSocket;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 pub mod nat;
 pub mod session;

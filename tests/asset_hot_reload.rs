@@ -1,10 +1,6 @@
 // tests/asset_hot_reload.rs
 use rustray::app::router::geo_loader::GeoManager;
-use rustray::app::router::assets::AssetLoader;
 use std::fs;
-use std::path::PathBuf;
-use std::time::Duration;
-use tokio::time::sleep;
 use rustray::error::Result;
 
 // This test mocks the reload behavior without spinning up the full Router

@@ -66,11 +66,10 @@ impl MqttTransport {
                             // Format: base/session_id/down
                             if let Some(&session_id) = parts.get(parts.len().saturating_sub(2)) {
                                 let map = sessions_clone.lock().await;
-                                if let Some(tx) = map.get(session_id) {
-                                    if let Err(_) = tx.send(payload) {
+                                if let Some(tx) = map.get(session_id)
+                                    && let Err(_) = tx.send(payload) {
                                         // Channel closed owner receiver dropped
                                     }
-                                }
                             }
                         }
                     }
@@ -173,7 +172,7 @@ impl AsyncWrite for MqttStream {
             Poll::Ready(Ok(())) => {
                 let topic = format!("{}/{}/up", self.base_topic, self.session_id);
                 let payload = buf.to_vec();
-                if let Err(_) = self.outgoing_tx.start_send_unpin((topic, payload)) {
+                if self.outgoing_tx.start_send_unpin((topic, payload)).is_err() {
                     return Poll::Ready(Err(io::Error::new(
                         io::ErrorKind::BrokenPipe,
                         "MQTT channel closed",

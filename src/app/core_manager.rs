@@ -147,7 +147,7 @@ impl CoreManager {
         let bin_name = core_type.binary_name();
         let _parent = dest.parent().context("Invalid dest path")?;
 
-        if archive.extension().map_or(false, |e| e == "zip") {
+        if archive.extension().is_some_and(|e| e == "zip") {
             let file = std::fs::File::open(archive)?;
             let mut zip = zip::ZipArchive::new(file)?;
 
@@ -167,7 +167,7 @@ impl CoreManager {
                     return Ok(());
                 }
             }
-        } else if archive.extension().map_or(false, |e| e == "gz") {
+        } else if archive.extension().is_some_and(|e| e == "gz") {
             // Assume .tar.gz
             let file = std::fs::File::open(archive)?;
             let tar = flate2::read::GzDecoder::new(file);
@@ -176,7 +176,7 @@ impl CoreManager {
             for entry in archive.entries()? {
                 let mut entry: tar::Entry<_> = entry?;
                 let path = entry.path()?.to_path_buf();
-                if path.file_name().map_or(false, |f| f == bin_name) {
+                if path.file_name().is_some_and(|f| f == bin_name) {
                     entry.unpack(dest)?;
                     #[cfg(unix)]
                     {

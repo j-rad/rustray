@@ -2,9 +2,6 @@
 //! Database Abstraction Layer
 //! Supports full SurrealDB for desktop/servers and LiteStore (AtomicFile) for embedded devices.
 
-use crate::error::Result;
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 #[cfg(not(feature = "surrealdb"))]
 mod lite_store {

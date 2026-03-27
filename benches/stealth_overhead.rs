@@ -1,7 +1,6 @@
 // benches/stealth_overhead.rs
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use rustray::protocols::stealth::{HeaderEncryptor, MarkovJitter, ProbabilisticShaper};
-use tokio::runtime::Runtime;
 
 fn bench_probabilistic_shaper(c: &mut Criterion) {
     let mut group = c.benchmark_group("stealth_shaper");

@@ -168,7 +168,7 @@ impl Address {
                 addrs
                     .into_iter()
                     .next()
-                    .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Domain resolution failed"))
+                    .ok_or_else(|| io::Error::other("Domain resolution failed"))
             }
         }
     }
@@ -470,6 +470,12 @@ struct UdpSession {
     #[allow(dead_code)]
     target_addr: Option<SocketAddr>,
     last_activity: std::time::Instant,
+}
+
+impl Default for UdpSessionManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl UdpSessionManager {
@@ -780,13 +786,12 @@ impl TuicOutbound {
         // Check pool for existing connection
         {
             let mut pool = CONNECTION_POOL.lock().await;
-            if let Some(conn) = pool.get(&remote_addr) {
-                if !conn.is_closed().await {
+            if let Some(conn) = pool.get(&remote_addr)
+                && !conn.is_closed().await {
                     conn.update_activity().await;
                     debug!("TUIC: Reusing pooled connection to {}", remote_addr);
                     return Ok(conn.clone());
                 }
-            }
         }
 
         // Create new connection
@@ -816,12 +821,11 @@ impl TuicOutbound {
 
     /// Build ALPN list from settings
     fn get_alpn(&self) -> Vec<&[u8]> {
-        if let Some(alpns) = &self.settings.alpn {
-            if !alpns.is_empty() {
+        if let Some(alpns) = &self.settings.alpn
+            && !alpns.is_empty() {
                 // Convert to static slice references
                 return vec![ALPN_TUIC_V5];
             }
-        }
         vec![ALPN_TUIC_V5]
     }
 }

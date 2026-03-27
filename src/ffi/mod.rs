@@ -187,6 +187,12 @@ pub struct SharedStatsBuffer {
     valid: AtomicBool,
 }
 
+impl Default for SharedStatsBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SharedStatsBuffer {
     pub const fn new() -> Self {
         Self {
@@ -321,11 +327,10 @@ impl EngineManager {
         };
 
         if rt_guard.is_some() {
-            if let Ok(h) = self.haptic.lock() {
-                if let Some(haptic) = &*h {
+            if let Ok(h) = self.haptic.lock()
+                && let Some(haptic) = &*h {
                     haptic.trigger_error();
                 }
-            }
             return RayResult::AlreadyRunning;
         }
 
@@ -333,11 +338,10 @@ impl EngineManager {
         let connect_config: ConnectConfig = match serde_json::from_str(&config_json) {
             Ok(c) => c,
             Err(e) => {
-                if let Ok(h) = self.haptic.lock() {
-                    if let Some(haptic) = &*h {
+                if let Ok(h) = self.haptic.lock()
+                    && let Some(haptic) = &*h {
                         haptic.trigger_error();
                     }
-                }
                 return RayResult::ConfigError(e.to_string());
             }
         };
@@ -346,11 +350,10 @@ impl EngineManager {
         let config = match build_internal_config(&connect_config) {
             Ok(c) => c,
             Err(e) => {
-                if let Ok(h) = self.haptic.lock() {
-                    if let Some(haptic) = &*h {
+                if let Ok(h) = self.haptic.lock()
+                    && let Some(haptic) = &*h {
                         haptic.trigger_error();
                     }
-                }
                 return e;
             }
         };
@@ -359,11 +362,10 @@ impl EngineManager {
         let runtime = match Runtime::new() {
             Ok(rt) => rt,
             Err(e) => {
-                if let Ok(h) = self.haptic.lock() {
-                    if let Some(haptic) = &*h {
+                if let Ok(h) = self.haptic.lock()
+                    && let Some(haptic) = &*h {
                         haptic.trigger_error();
                     }
-                }
                 return RayResult::ConnectionError(format!("Runtime init: {}", e));
             }
         };
@@ -393,11 +395,10 @@ impl EngineManager {
         *rt_guard = Some(runtime);
         global_shared_stats().set_state(1);
 
-        if let Ok(h) = self.haptic.lock() {
-            if let Some(haptic) = &*h {
+        if let Ok(h) = self.haptic.lock()
+            && let Some(haptic) = &*h {
                 haptic.trigger_success();
             }
-        }
 
         RayResult::Ok
     }

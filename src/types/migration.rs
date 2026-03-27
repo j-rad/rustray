@@ -186,20 +186,17 @@ pub fn import_from_text(text: &str) -> Result<Vec<ServerConfig>, Box<dyn Error>>
     let text = text.trim();
 
     // Try parsing as JSON backup first
-    if text.starts_with('{') {
-        if let Ok(backup) = ConfigBackup::import_json(text) {
+    if text.starts_with('{')
+        && let Ok(backup) = ConfigBackup::import_json(text) {
             return Ok(backup.servers);
         }
-    }
 
     // Try parsing as base64 subscription
-    if !text.contains('\n') && text.len() > 100 {
-        if let Ok(servers) = import_v2rayng_subscription(text) {
-            if !servers.is_empty() {
+    if !text.contains('\n') && text.len() > 100
+        && let Ok(servers) = import_v2rayng_subscription(text)
+            && !servers.is_empty() {
                 return Ok(servers);
             }
-        }
-    }
 
     // Parse as individual URIs
     let mut servers = Vec::new();
