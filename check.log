@@ -1,0 +1,423 @@
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /home/jrad/RustroverProjects/edgeray-workspace/rustray/Cargo.toml
+workspace: /home/jrad/RustroverProjects/edgeray-workspace/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /home/jrad/RustroverProjects/edgeray-workspace/rr-ui/Cargo.toml
+workspace: /home/jrad/RustroverProjects/edgeray-workspace/Cargo.toml
+    Checking rustray v1.0.0 (/home/jrad/RustroverProjects/edgeray-workspace/rustray)
+error[E0432]: unresolved import `crate::error::RayError`
+ --> rustray/src/adapters/uds_manager.rs:3:20
+  |
+3 | use crate::error::{RayError, Result};
+  |                    ^^^^^^^^ no `RayError` in `error`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `tonic_health`
+  --> rustray/src/api/server.rs:23:49
+   |
+23 | ...r, health_service) = tonic_health::server::health_reporter();
+   |                         ^^^^^^^^^^^^ use of unresolved module or unlinked crate `tonic_health`
+   |
+   = help: if you wanted to use a crate named `tonic_health`, use `cargo add tonic_health` to add it to your `Cargo.toml`
+
+warning: unused import: `Result`
+ --> rustray/src/adapters/uds_manager.rs:3:30
+  |
+3 | use crate::error::{RayError, Result};
+  |                              ^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `crate::protocols::stealth::ProbeTrap`
+ --> rustray/src/transport/reality.rs:6:5
+  |
+6 | use crate::protocols::stealth::ProbeTrap;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `BufMut`, `BytesMut`, and `Bytes`
+ --> rustray/src/p2p/relay.rs:7:13
+  |
+7 | use bytes::{Bytes, BytesMut, BufMut};
+  |             ^^^^^  ^^^^^^^^  ^^^^^^
+
+warning: unused import: `broadcast`
+  --> rustray/src/p2p/relay.rs:14:26
+   |
+14 | use tokio::sync::{Mutex, broadcast};
+   |                          ^^^^^^^^^
+
+warning: unused imports: `BytesMut` and `Bytes`
+ --> rustray/src/orchestrator/manager.rs:9:13
+  |
+9 | use bytes::{Bytes, BytesMut};
+  |             ^^^^^  ^^^^^^^^
+
+warning: unused import: `std::pin::Pin`
+  --> rustray/src/orchestrator/manager.rs:12:5
+   |
+12 | use std::pin::Pin;
+   |     ^^^^^^^^^^^^^
+
+warning: unused imports: `Context` and `Poll`
+  --> rustray/src/orchestrator/manager.rs:14:17
+   |
+14 | use std::task::{Context, Poll};
+   |                 ^^^^^^^  ^^^^
+
+warning: unused import: `Duration`
+  --> rustray/src/orchestrator/manager.rs:15:17
+   |
+15 | use std::time::{Duration, Instant};
+   |                 ^^^^^^^^
+
+warning: unused import: `ReadBuf`
+  --> rustray/src/orchestrator/manager.rs:16:40
+   |
+16 | use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+   |                                        ^^^^^^^
+
+warning: unused imports: `debug` and `warn`
+  --> rustray/src/plugin/sip003.rs:11:15
+   |
+11 | use tracing::{debug, info, warn};
+   |               ^^^^^        ^^^^
+
+warning: unused import: `AsyncReadExt`
+ --> rustray/src/app/metrics/prober.rs:4:17
+  |
+4 | use tokio::io::{AsyncReadExt, AsyncWriteExt};
+  |                 ^^^^^^^^^^^^
+
+warning: unused imports: `PeerJoinSignal` and `SignalingService`
+ --> rustray/src/app/reverse/mod.rs:7:23
+  |
+7 |     PeerJoinReceiver, PeerJoinSignal, SignalingService, determine_c...
+  |                       ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `RwLock`
+  --> rustray/src/app/reverse/mod.rs:19:26
+   |
+19 | use tokio::sync::{Mutex, RwLock};
+   |                          ^^^^^^
+
+warning: unused import: `error`
+  --> rustray/src/app/reverse/mod.rs:21:22
+   |
+21 | use tracing::{debug, error, info, warn};
+   |                      ^^^^^
+
+warning: unused import: `std::collections::HashMap`
+  --> rustray/src/kernel/ebpf_program.rs:17:5
+   |
+17 | use std::collections::HashMap;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::net::Ipv4Addr`
+  --> rustray/src/kernel/ebpf_program.rs:18:5
+   |
+18 | use std::net::Ipv4Addr;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unnecessary parentheses around function argument
+   --> rustray/src/kernel/ebpf_program.rs:419:36
+    |
+419 | ...imm(BPF_REG_0, (range.next_power_of_two() - 1)));
+    |                   ^                             ^
+    |
+    = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+    |
+419 -     prog.push(and64_imm(BPF_REG_0, (range.next_power_of_two() - 1)));
+419 +     prog.push(and64_imm(BPF_REG_0, range.next_power_of_two() - 1));
+    |
+
+warning: unused import: `std::io::Write`
+ --> rustray/src/types/parser.rs:8:5
+  |
+8 | use std::io::Write;
+  |     ^^^^^^^^^^^^^^
+
+warning: unused import: `crate::error::Result`
+ --> rustray/src/db.rs:5:5
+  |
+5 | use crate::error::Result;
+  |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `Deserialize` and `Serialize`
+ --> rustray/src/db.rs:6:13
+  |
+6 | use serde::{Deserialize, Serialize};
+  |             ^^^^^^^^^^^  ^^^^^^^^^
+
+warning: unused import: `std::sync::Arc`
+ --> rustray/src/db.rs:7:5
+  |
+7 | use std::sync::Arc;
+  |     ^^^^^^^^^^^^^^
+
+warning: unused import: `warn`
+  --> rustray/src/jobs/billing.rs:17:28
+   |
+17 | use tracing::{error, info, warn};
+   |                            ^^^^
+
+warning: use of deprecated function `base64::encode`: Use Engine::encode
+   --> rustray/src/api/auth_middleware.rs:137:21
+    |
+137 |             base64::encode(&payload),
+    |                     ^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated function `base64::encode`: Use Engine::encode
+   --> rustray/src/api/auth_middleware.rs:138:21
+    |
+138 |             base64::encode(&signature)
+    |                     ^^^^^^
+
+warning: use of deprecated function `base64::encode`: Use Engine::encode
+   --> rustray/src/api/auth_middleware.rs:148:20
+    |
+148 |         Ok(base64::encode(&signature))
+    |                    ^^^^^^
+
+error[E0225]: only auto traits can be used as additional traits in a trait object
+  --> rustray/src/orchestrator/probe.rs:69:49
+   |
+69 | ...                   Box<dyn AsyncRead + AsyncWrite + Unpin + Send>,
+   |                               ---------   ^^^^^^^^^^ additional non-auto trait
+   |                               |
+   |                               first non-auto trait
+   |
+   = help: consider creating a new trait with all of these as supertraits and using that trait here instead: `trait NewTrait: tokio::io::AsyncRead + tokio::io::AsyncWrite {}`
+   = note: auto-traits like `Send` and `Sync` are traits that have special properties; for more information on them, visit <https://doc.rust-lang.org/reference/special-types-and-traits.html#auto-traits>
+
+error[E0225]: only auto traits can be used as additional traits in a trait object
+  --> rustray/src/orchestrator/manager.rs:59:33
+   |
+59 |     stream: Box<dyn AsyncRead + AsyncWrite + Unpin + Send>,
+   |                     ---------   ^^^^^^^^^^ additional non-auto trait
+   |                     |
+   |                     first non-auto trait
+   |
+   = help: consider creating a new trait with all of these as supertraits and using that trait here instead: `trait NewTrait: tokio::io::AsyncRead + tokio::io::AsyncWrite {}`
+   = note: auto-traits like `Send` and `Sync` are traits that have special properties; for more information on them, visit <https://doc.rust-lang.org/reference/special-types-and-traits.html#auto-traits>
+
+error[E0225]: only auto traits can be used as additional traits in a trait object
+   --> rustray/src/orchestrator/probe.rs:100:29
+    |
+100 |         Box<dyn AsyncRead + AsyncWrite + Unpin + Send>,
+    |                 ---------   ^^^^^^^^^^ additional non-auto trait
+    |                 |
+    |                 first non-auto trait
+    |
+    = help: consider creating a new trait with all of these as supertraits and using that trait here instead: `trait NewTrait: tokio::io::AsyncRead + tokio::io::AsyncWrite {}`
+    = note: auto-traits like `Send` and `Sync` are traits that have special properties; for more information on them, visit <https://doc.rust-lang.org/reference/special-types-and-traits.html#auto-traits>
+
+error[E0282]: type annotations needed
+   --> rustray/src/orchestrator/probe.rs:169:29
+    |
+169 |                 error: Some(e.to_string()),
+    |                             ^ cannot infer type
+
+error[E0282]: type annotations needed
+  --> rustray/src/orchestrator/manager.rs:92:22
+   |
+92 |           let result = self
+   |  ______________________^
+93 | |             .prober
+94 | |             .race(transports)
+95 | |             .await
+   | |__________________^ cannot infer type
+
+error[E0282]: type annotations needed
+   --> rustray/src/orchestrator/manager.rs:123:22
+    |
+123 |           let result = self
+    |  ______________________^
+124 | |             .prober
+125 | |             .race(transports)
+126 | |             .await
+    | |__________________^ cannot infer type
+
+error[E0282]: type annotations needed
+  --> rustray/src/api/server.rs:24:5
+   |
+24 |     health_reporter
+   |     ^^^^^^^^^^^^^^^ cannot infer type
+
+error[E0277]: the trait bound `SchedClassifier: TryFrom<&mut ...>` is not satisfied
+   --> rustray/src/kernel/ebpf_loader.rs:154:34
+    |
+154 | ...tc_prog) = SchedClassifier::try_from(program) {
+    |               ^^^^^^^^^^^^^^^ unsatisfied trait bound
+    |
+    = help: the trait `std::convert::From<&mut Program>` is not implemented for `aya::programs::SchedClassifier`
+help: the following other types implement trait `std::convert::TryFrom<T>`
+   --> /home/jrad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aya-0.12.0/src/programs/mod.rs:928:1
+    |
+928 | / impl_try_from_program!(
+929 | |     KProbe,
+930 | |     UProbe,
+931 | |     TracePoint,
+...   |
+952 | |     CgroupDevice,
+953 | | );
+    | | ^
+    | | |
+    | |_`&aya::programs::SchedClassifier` implements `std::convert::TryFrom<&Program>`
+    |   `&mut aya::programs::SchedClassifier` implements `std::convert::TryFrom<&mut Program>`
+    = note: required for `&mut Program` to implement `Into<SchedClassifier>`
+    = note: required for `aya::programs::SchedClassifier` to implement `std::convert::TryFrom<&mut Program>`
+    = note: the full name for the type has been written to '/home/jrad/RustroverProjects/edgeray-workspace/target/debug/deps/rustray-5950c7854a4f0eef.long-type-695607106610457944.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+    = note: this error originates in the macro `impl_try_from_program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0061]: this method takes 1 argument but 2 arguments were supplied
+   --> rustray/src/kernel/ebpf_loader.rs:156:33
+    |
+156 | ... tc_prog.detach(&self.ifname, TcAttachType::Egress);
+    |             ^^^^^^ ------------  -------------------- unexpected argument #2 of type `TcAttachType`
+    |                    |
+    |                    expected `SchedClassifierLinkId`, found `&String`
+    |
+note: method defined here
+   --> /home/jrad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aya-0.12.0/src/programs/tc.rs:212:12
+    |
+212 |     pub fn detach(&mut self, link_id: SchedClassifierLinkId) -> R...
+    |            ^^^^^^
+help: remove the extra argument
+    |
+156 -                 let _ = tc_prog.detach(&self.ifname, TcAttachType::Egress);
+156 +                 let _ = tc_prog.detach(/* SchedClassifierLinkId */);
+    |
+
+error[E0277]: the trait bound `SchedClassifier: From<&mut Program>` is not satisfied
+   --> rustray/src/kernel/ebpf_loader.rs:154:34
+    |
+154 | ...tc_prog) = SchedClassifier::try_from(program) {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+    |
+    = help: the trait `std::convert::From<&mut Program>` is not implemented for `aya::programs::SchedClassifier`
+help: the following other types implement trait `std::convert::TryFrom<T>`
+   --> /home/jrad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aya-0.12.0/src/programs/mod.rs:928:1
+    |
+928 | / impl_try_from_program!(
+929 | |     KProbe,
+930 | |     UProbe,
+931 | |     TracePoint,
+...   |
+952 | |     CgroupDevice,
+953 | | );
+    | | ^
+    | | |
+    | |_`&aya::programs::SchedClassifier` implements `std::convert::TryFrom<&Program>`
+    |   `&mut aya::programs::SchedClassifier` implements `std::convert::TryFrom<&mut Program>`
+    = note: required for `&mut Program` to implement `Into<SchedClassifier>`
+    = note: required for `aya::programs::SchedClassifier` to implement `std::convert::TryFrom<&mut Program>`
+    = note: the full name for the type has been written to '/home/jrad/RustroverProjects/edgeray-workspace/target/debug/deps/rustray-5950c7854a4f0eef.long-type-17986745061760451657.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+    = note: this error originates in the macro `impl_try_from_program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: no method named `next_power_of_two` found for type `i32` in the current scope
+   --> rustray/src/kernel/ebpf_program.rs:419:43
+    |
+419 | ..., (range.next_power_of_two() - 1)));
+    |             ^^^^^^^^^^^^^^^^^ method not found in `i32`
+
+warning: unused import: `BufMut`
+ --> rustray/src/fec/transport.rs:8:23
+  |
+8 | use bytes::{BytesMut, BufMut, Bytes};
+  |                       ^^^^^^
+
+warning: unused import: `Embed`
+  --> rustray/src/api/embedded_assets.rs:13:18
+   |
+13 | use rust_embed::{Embed, RustEmbed};
+   |                  ^^^^^
+
+warning: unused import: `rand::RngCore`
+  --> rustray/src/app/mesh/peer_registry.rs:32:5
+   |
+32 | use rand::RngCore;
+   |     ^^^^^^^^^^^^^
+
+warning: unused variable: `source`
+  --> rustray/src/inbounds/reverse_portal.rs:13:5
+   |
+13 |     source: String,
+   |     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_source`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `metadata`
+  --> rustray/src/adapters/uds_manager.rs:29:23
+   |
+29 |             if let Ok(metadata) = fs::metadata(path) {
+   |                       ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_metadata`
+
+warning: unused variable: `first`
+   --> rustray/src/transport/desync.rs:141:25
+    |
+141 |                     let first = Bytes::copy_from_slice(&buf[..spl...
+    |                         ^^^^^ help: if this is intentional, prefix it with an underscore: `_first`
+
+warning: unused variable: `range_size`
+   --> rustray/src/transport/flow_j_multiport.rs:358:9
+    |
+358 |     let range_size = (port_range.1 - port_range.0 + 1) as usize;
+    |         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_range_size`
+
+warning: unused variable: `msg`
+   --> rustray/src/transport/pqc.rs:431:38
+    |
+431 | ...ify_with_pk(pk: &[u8], msg: &[u8], sig: &DilithiumSignature) -...
+    |                           ^^^ help: if this is intentional, prefix it with an underscore: `_msg`
+
+warning: value assigned to `guard` is never read
+   --> rustray/src/transport/quic.rs:374:25
+    |
+374 |                         guard = state.lock().await;
+    |                         ^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> rustray/src/transport/tls_fragment.rs:148:17
+    |
+148 | ...   let mut state = std::mem::replace(&mut self.state, Fragment...
+    |           ----^^^^^
+    |           |
+    |           help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `target_url`
+   --> rustray/src/speedtest.rs:106:13
+    |
+106 |         let target_url = "http://speedtest.google.com/Generate_20...
+    |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_target_url`
+
+warning: unused variable: `test_file_url`
+   --> rustray/src/speedtest.rs:114:13
+    |
+114 |         let test_file_url = "http://speed.cloudflare.com/__down?b...
+    |             ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_test_file_url`
+
+warning: unused variable: `remote_name`
+   --> rustray/src/app/mesh/discovery.rs:107:29
+    |
+107 |                         let remote_name = info.get_fullname();
+    |                             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_remote_name`
+
+warning: unused variable: `addr`
+   --> rustray/src/app/mesh/discovery.rs:119:29
+    |
+119 |                         let addr = SocketAddr::new(ip, port);
+    |                             ^^^^ help: if this is intentional, prefix it with an underscore: `_addr`
+
+Some errors have detailed explanations: E0061, E0225, E0277, E0282, E0432, E0433, E0599.
+For more information about an error, try `rustc --explain E0061`.
+warning: `rustray` (lib) generated 39 warnings
+error: could not compile `rustray` (lib) due to 13 previous errors; 39 warnings emitted
