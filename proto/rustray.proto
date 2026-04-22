@@ -8,7 +8,7 @@ option java_multiple_files = true;
 
 import "common_serial.proto";
 
-// Config is the master config of Xray. Xray takes this config as input and
+// Config is the master config of RustRay. RustRay takes this config as input and
 // functions accordingly.
 message Config {
   // Inbound handler configurations. Must have at least one item.

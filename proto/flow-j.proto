@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package rustray.proxy.flow_j;
+option go_package = "github.com/j-rad/rustray/proxy/flow_j";
+
+message Account {
+  string uuid = 1;
+  string flow = 2;
+}
+
+message Config {
+  string mode = 1;
+  string uuid = 2;
+  string address = 3;
+  uint32 port = 4;
+}

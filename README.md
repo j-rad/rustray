@@ -5,7 +5,7 @@
 [![Build Status](https://github.com/FaezBarghasa/rustray/actions/workflows/test.yml/badge.svg)](https://github.com/FaezBarghasa/rustray/actions)
 [![Production Ready](https://img.shields.io/badge/Status-Production--Ready-success.svg)](IMPLEMENTATION_STATUS.md)
 
-**RustRay** is a next-generation, high-performance universal proxy core written entirely in memory-safe Rust. It functions as a **100% drop-in replacement** for legacy systems like `Xray-core`, merging standard JSON APIs with cutting-edge proprietary evasion techniques built natively into the runtime.
+**RustRay** is a next-generation, high-performance universal proxy core written entirely in memory-safe Rust. It functions as a **100% drop-in replacement** for legacy systems like `RustRay-core`, merging standard JSON APIs with cutting-edge proprietary evasion techniques built natively into the runtime.
 
 ---
 
@@ -22,7 +22,7 @@
 ## Core Philosophy
 
 - **Uncompromising Performance**: Built securely on `tokio`, `quiche`, and `smoltcp` for extreme throughput and zero-copy packet passing (`bytes`).
-- **Legacy Compatibility**: Reads standard `xrustray` configurations, handling routing and outbounds without breaking your existing CI pipelines.
+- **Legacy Compatibility**: Reads standard `rustray` configurations, handling routing and outbounds without breaking your existing CI pipelines.
 - **Radical Stealth**: Leverages `aya` eBPF hooking and advanced app-layer desynchronization to effectively disappear from stateful Deep Packet Inspection.
 
 ## Key Features

@@ -1,6 +1,6 @@
 //! Migration and Backup/Restore Utilities
 //!
-//! Provides encrypted backup/restore functionality and v2rayNG subscription import.
+//! Provides encrypted backup/restore functionality and RustRayNG subscription import.
 
 use crate::types::{ServerConfig, Subscription};
 use aes_gcm::{
@@ -126,9 +126,9 @@ impl ConfigBackup {
     }
 }
 
-/// Import v2rayNG subscription format
+/// Import RustRayNG subscription format
 ///
-/// Parses v2rayNG-style subscription links (base64-encoded list of server URIs)
+/// Parses RustRayNG-style subscription links (base64-encoded list of server URIs)
 ///
 /// # Arguments
 ///
@@ -137,7 +137,7 @@ impl ConfigBackup {
 /// # Returns
 ///
 /// Vector of parsed server configurations
-pub fn import_v2rayng_subscription(
+pub fn import_rustrayng_subscription(
     subscription_data: &str,
 ) -> Result<Vec<ServerConfig>, Box<dyn Error>> {
     // Decode base64
@@ -172,7 +172,7 @@ pub fn import_v2rayng_subscription(
 ///
 /// Supports multiple formats:
 /// - Individual server URIs (vless://, vmess://, trojan://, ss://)
-/// - v2rayNG subscription format (base64-encoded)
+/// - RustRayNG subscription format (base64-encoded)
 /// - Ray JSON backup
 ///
 /// # Arguments
@@ -193,7 +193,7 @@ pub fn import_from_text(text: &str) -> Result<Vec<ServerConfig>, Box<dyn Error>>
 
     // Try parsing as base64 subscription
     if !text.contains('\n') && text.len() > 100
-        && let Ok(servers) = import_v2rayng_subscription(text)
+        && let Ok(servers) = import_rustrayng_subscription(text)
             && !servers.is_empty() {
                 return Ok(servers);
             }

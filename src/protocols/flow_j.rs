@@ -225,7 +225,7 @@ pub struct FlowJClient {
     pub uuid: String,
     /// Optional level for policy
     pub level: Option<u8>,
-    /// Flow control algorithm (e.g., "xtls-rprx-vision")
+    /// Flow control algorithm (e.g., "vision")
     #[serde(default)]
     pub flow: Option<String>,
 }
@@ -424,7 +424,7 @@ impl FlowJInbound {
             uuid_str, header.address, header.port
         );
 
-        let is_vision = client.flow.as_deref() == Some("xtls-rprx-vision")
+        let is_vision = client.flow.as_deref() == Some("vision")
             || client.flow.as_deref() == Some("flow-j-vision");
 
         // Handle remaining data in buffer

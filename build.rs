@@ -19,6 +19,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "proto/rustray.proto",
         "proto/stats.proto",
         "proto/proxyman.proto",
+        "proto/router.proto",
+        "proto/log.proto",
+        "proto/observatory.proto",
+        "proto/transport.proto",
+        "proto/reality.proto",
+        "proto/vless.proto",
+        "proto/vmess.proto",
+        "proto/trojan.proto",
+        "proto/flow-j.proto",
+        "proto/hysteria2.proto",
+        "proto/tuic.proto",
+        "proto/wiregaurd.proto",
+        "proto/warp.proto",
     ];
 
     // Verify all proto files exist

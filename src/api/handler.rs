@@ -1,5 +1,5 @@
 // src/api/handler.rs
-use crate::api::xray::app::proxyman::command::{
+use crate::api::rustray::app::proxyman::command::{
     AddInboundRequest, AddInboundResponse, AddOutboundRequest, AddOutboundResponse,
     AlterInboundRequest, AlterInboundResponse, AlterOutboundRequest, AlterOutboundResponse,
     GetInboundUserRequest, GetInboundUserResponse, GetInboundUsersCountResponse,
@@ -25,7 +25,7 @@ impl HandlerServiceImpl {
 
     /// Convert protobuf InboundHandlerConfig to internal Inbound struct
     fn proto_to_inbound(
-        proto_inbound: crate::api::xray::core::InboundHandlerConfig,
+        proto_inbound: crate::api::rustray::core::InboundHandlerConfig,
     ) -> Result<Inbound, Status> {
         // Extract tag from proto
         let tag = proto_inbound.tag;
@@ -82,7 +82,7 @@ impl HandlerServiceImpl {
 
     /// Convert protobuf OutboundHandlerConfig to internal Outbound struct
     fn proto_to_outbound(
-        proto_outbound: crate::api::xray::core::OutboundHandlerConfig,
+        proto_outbound: crate::api::rustray::core::OutboundHandlerConfig,
     ) -> Result<Outbound, Status> {
         let tag = proto_outbound.tag;
 
@@ -213,7 +213,7 @@ impl HandlerService for HandlerServiceImpl {
 
         // Handle operation
         if operation.r#type.contains("AddUserOperation") {
-            let op = crate::api::xray::app::proxyman::command::AddUserOperation::decode(&*operation.value)
+            let op = crate::api::rustray::app::proxyman::command::AddUserOperation::decode(&*operation.value)
                 .map_err(|e| Status::invalid_argument(format!("Failed to decode AddUserOperation: {}", e)))?;
             
             let user = op.user.ok_or_else(|| Status::invalid_argument("AddUserOperation missing user"))?;
@@ -223,8 +223,8 @@ impl HandlerService for HandlerServiceImpl {
 
             match settings {
                 InboundSettings::Vless(cfg) => {
-                    // Account type: xray.proxy.vless.Account
-                    let acc = crate::api::xray::proxy::vless::Account::decode(&*account.value)
+                    // Account type: rustray.proxy.vless.Account
+                    let acc = crate::api::rustray::proxy::vless::Account::decode(&*account.value)
                         .map_err(|e| Status::invalid_argument(format!("Failed to decode VLess account: {}", e)))?;
                     cfg.clients.push(VlessUser {
                         id: acc.id,
@@ -234,8 +234,8 @@ impl HandlerService for HandlerServiceImpl {
                     });
                 }
                 InboundSettings::Vmess(cfg) => {
-                    // Account type: xray.proxy.vmess.Account
-                    let acc = crate::api::xray::proxy::vmess::Account::decode(&*account.value)
+                    // Account type: rustray.proxy.vmess.Account
+                    let acc = crate::api::rustray::proxy::vmess::Account::decode(&*account.value)
                         .map_err(|e| Status::invalid_argument(format!("Failed to decode VMess account: {}", e)))?;
                     cfg.clients.push(VmessUser {
                         id: acc.id,
@@ -245,8 +245,8 @@ impl HandlerService for HandlerServiceImpl {
                     });
                 }
                 InboundSettings::Trojan(cfg) => {
-                    // Account type: xray.proxy.trojan.Account
-                    let acc = crate::api::xray::proxy::trojan::Account::decode(&*account.value)
+                    // Account type: rustray.proxy.trojan.Account
+                    let acc = crate::api::rustray::proxy::trojan::Account::decode(&*account.value)
                         .map_err(|e| Status::invalid_argument(format!("Failed to decode Trojan account: {}", e)))?;
                     cfg.clients.push(TrojanUser {
                         password: acc.password,
@@ -262,7 +262,7 @@ impl HandlerService for HandlerServiceImpl {
                 }
             }
         } else if operation.r#type.contains("RemoveUserOperation") {
-            let op = crate::api::xray::app::proxyman::command::RemoveUserOperation::decode(&*operation.value)
+            let op = crate::api::rustray::app::proxyman::command::RemoveUserOperation::decode(&*operation.value)
                 .map_err(|e| Status::invalid_argument(format!("Failed to decode RemoveUserOperation: {}", e)))?;
             
             let email = op.email;
@@ -324,13 +324,13 @@ impl HandlerService for HandlerServiceImpl {
             .unwrap_or_default();
 
         // Convert internal Inbound to proto InboundHandlerConfig
-        let proto_inbounds: Vec<crate::api::xray::core::InboundHandlerConfig> = inbounds
+        let proto_inbounds: Vec<crate::api::rustray::core::InboundHandlerConfig> = inbounds
             .iter()
             .map(|inbound| {
                 // Create TypedMessage for proxy_settings
                 let proxy_settings = if !is_only_tags {
                     let settings_json = serde_json::to_vec(&inbound.settings).unwrap_or_default();
-                    Some(crate::api::xray::common::serial::TypedMessage {
+                    Some(crate::api::rustray::common::serial::TypedMessage {
                         r#type: format!("rustray.proxy.{}.Inbound", inbound.protocol),
                         value: settings_json,
                     })
@@ -338,7 +338,7 @@ impl HandlerService for HandlerServiceImpl {
                     None
                 };
 
-                crate::api::xray::core::InboundHandlerConfig {
+                crate::api::rustray::core::InboundHandlerConfig {
                     tag: inbound.tag.clone(),
                     receiver_settings: None,
                     proxy_settings,
@@ -385,10 +385,10 @@ impl HandlerService for HandlerServiceImpl {
                                 continue;
                             }
                         let account_json = serde_json::to_vec(&client).unwrap_or_default();
-                        users.push(crate::api::xray::common::protocol::User {
+                        users.push(crate::api::rustray::common::protocol::User {
                             level: client.level.unwrap_or(0),
                             email: client.email.clone().unwrap_or_default(),
-                            account: Some(crate::api::xray::common::serial::TypedMessage {
+                            account: Some(crate::api::rustray::common::serial::TypedMessage {
                                 r#type: "rustray.proxy.vless.Account".to_string(),
                                 value: account_json,
                             }),
@@ -402,10 +402,10 @@ impl HandlerService for HandlerServiceImpl {
                                 continue;
                             }
                         let account_json = serde_json::to_vec(&client).unwrap_or_default();
-                        users.push(crate::api::xray::common::protocol::User {
+                        users.push(crate::api::rustray::common::protocol::User {
                             level: client.level.unwrap_or(0),
                             email: client.email.clone().unwrap_or_default(),
-                            account: Some(crate::api::xray::common::serial::TypedMessage {
+                            account: Some(crate::api::rustray::common::serial::TypedMessage {
                                 r#type: "rustray.proxy.vmess.Account".to_string(),
                                 value: account_json,
                             }),
@@ -419,10 +419,10 @@ impl HandlerService for HandlerServiceImpl {
                                 continue;
                             }
                         let account_json = serde_json::to_vec(&client).unwrap_or_default();
-                        users.push(crate::api::xray::common::protocol::User {
+                        users.push(crate::api::rustray::common::protocol::User {
                             level: client.level.unwrap_or(0),
                             email: client.email.clone().unwrap_or_default(),
-                            account: Some(crate::api::xray::common::serial::TypedMessage {
+                            account: Some(crate::api::rustray::common::serial::TypedMessage {
                                 r#type: "rustray.proxy.trojan.Account".to_string(),
                                 value: account_json,
                             }),
@@ -607,16 +607,16 @@ impl HandlerService for HandlerServiceImpl {
             .outbounds.clone()
             .unwrap_or_default();
 
-        let proto_outbounds: Vec<crate::api::xray::core::OutboundHandlerConfig> = outbounds
+        let proto_outbounds: Vec<crate::api::rustray::core::OutboundHandlerConfig> = outbounds
             .iter()
             .map(|outbound| {
                 let settings_json = serde_json::to_vec(&outbound.settings).unwrap_or_default();
-                let proxy_settings = Some(crate::api::xray::common::serial::TypedMessage {
+                let proxy_settings = Some(crate::api::rustray::common::serial::TypedMessage {
                     r#type: format!("rustray.proxy.{}.Outbound", outbound.protocol),
                     value: settings_json,
                 });
 
-                crate::api::xray::core::OutboundHandlerConfig {
+                crate::api::rustray::core::OutboundHandlerConfig {
                     tag: outbound.tag.clone(),
                     sender_settings: None,
                     proxy_settings,

@@ -64,7 +64,7 @@ fn benchmark_geo_loading(c: &mut Criterion) {
     let test_paths = [
         "./geoip.dat",
         "/usr/share/rustray/geoip.dat",
-        "/usr/local/share/xray/geoip.dat",
+        "/usr/local/share/rustray/geoip.dat",
     ];
 
     let test_file = test_paths

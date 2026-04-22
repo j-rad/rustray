@@ -143,7 +143,7 @@ pub async fn listen_stream(
         // Standard HTTP Proxy
         // We need to send the request to the target.
         // We have consumed the header. We need to forward it?
-        // Xray router receives a Stream.
+        // RustRay router receives a Stream.
         // If we call `router.route_stream`, we give it the stream.
         // But the first packet (Header) is already consumed by us!
         // We must PREPEND header back?

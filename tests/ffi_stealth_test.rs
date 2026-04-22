@@ -10,7 +10,7 @@
 //! These tests ensure that FFI clients can successfully use rustray's
 //! premium stealth features through the exported functions.
 
-use rustray::RayResult;
+use rustray::RustRayResult;
 use rustray::ffi::{
     ConnectConfig, FlowJCdnConfig, FlowJMobileConfig, FragmentConfig, RealityConfig,
 };
@@ -24,7 +24,7 @@ fn test_config_parsing_reality() {
         "port": 443,
         "uuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
         "protocol": "vless",
-        "flow": "xtls-rprx-vision",
+        "flow": "rustray-rustray-vision",
         "security": "reality",
         "reality_settings": {
             "public_key": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab",
@@ -40,7 +40,7 @@ fn test_config_parsing_reality() {
     assert_eq!(config.address, "example.com");
     assert_eq!(config.port, 443);
     assert_eq!(config.protocol, "vless");
-    assert_eq!(config.flow, Some("xtls-rprx-vision".to_string()));
+    assert_eq!(config.flow, Some("rustray-rustray-vision".to_string()));
     assert_eq!(config.security, "reality");
 
     let reality = config.reality_settings.unwrap();
@@ -260,7 +260,7 @@ fn test_ffi_start_invalid_config() {
     // Not a Result type, but the Enum directly
 
     match result {
-        RayResult::ConfigError(msg) => {
+        RustRayResult::ConfigError(msg) => {
             assert!(msg.contains("expected") || msg.contains("EOF") || msg.contains("JSON"));
         }
         e => panic!("Expected ConfigError, got {:?}", e),
@@ -342,25 +342,25 @@ fn test_flowj_mobile_config_serialization() {
 fn test_ffi_error_display() {
     let errors = vec![
         (
-            RayResult::ConfigError("bad config".to_string()),
+            RustRayResult::ConfigError("bad config".to_string()),
             "Configuration error: bad config",
         ),
         (
-            RayResult::ConnectionError("timeout".to_string()),
+            RustRayResult::ConnectionError("timeout".to_string()),
             "Connection error: timeout",
         ),
         (
-            RayResult::HandshakeError("tls failed".to_string()),
+            RustRayResult::HandshakeError("tls failed".to_string()),
             "Handshake error: tls failed",
         ),
         (
-            RayResult::ProtocolError("invalid".to_string()),
+            RustRayResult::ProtocolError("invalid".to_string()),
             "Protocol error: invalid",
         ),
-        (RayResult::AlreadyRunning, "Tunnel already running"),
-        (RayResult::NotRunning, "Tunnel not running"),
+        (RustRayResult::AlreadyRunning, "Tunnel already running"),
+        (RustRayResult::NotRunning, "Tunnel not running"),
         (
-            RayResult::PanicError("crash".to_string()),
+            RustRayResult::PanicError("crash".to_string()),
             "Panic occurred: crash",
         ),
     ];
@@ -514,7 +514,7 @@ fn test_vision_handshake_integration() {
         "port": 443,
         "uuid": "test-uuid",
         "protocol": "vless",
-        "flow": "xtls-rprx-vision",
+        "flow": "rustray-rustray-vision",
         "security": "tls"
     }
     "#;

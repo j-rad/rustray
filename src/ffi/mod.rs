@@ -258,7 +258,7 @@ pub use crate::types::{ConnectionMetrics, RuleType, StatsSnapshot};
 // ============================================================================
 
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Enum)]
-pub enum RayResult {
+pub enum RustRayResult {
     Ok,
     ConfigError(String),
     ConnectionError(String),
@@ -270,13 +270,13 @@ pub enum RayResult {
     StorageError(String),
 }
 
-impl std::fmt::Display for RayResult {
+impl std::fmt::Display for RustRayResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
     }
 }
 
-impl std::error::Error for RayResult {}
+impl std::error::Error for RustRayResult {}
 
 // ============================================================================
 // ENGINE MANAGER
@@ -327,10 +327,10 @@ impl EngineManager {
         &self,
         config_json: String,
         callback: Option<Box<dyn VpnCallback>>,
-    ) -> RayResult {
+    ) -> RustRayResult {
         let mut rt_guard = match self.runtime.lock() {
             Ok(g) => g,
-            Err(e) => return RayResult::PanicError(format!("Lock poisoning: {}", e)),
+            Err(e) => return RustRayResult::PanicError(format!("Lock poisoning: {}", e)),
         };
 
         if rt_guard.is_some() {
@@ -338,7 +338,7 @@ impl EngineManager {
                 && let Some(haptic) = &*h {
                     haptic.trigger_error();
                 }
-            return RayResult::AlreadyRunning;
+            return RustRayResult::AlreadyRunning;
         }
 
         // Parse Config
@@ -349,7 +349,7 @@ impl EngineManager {
                     && let Some(haptic) = &*h {
                         haptic.trigger_error();
                     }
-                return RayResult::ConfigError(e.to_string());
+                return RustRayResult::ConfigError(e.to_string());
             }
         };
 
@@ -373,7 +373,7 @@ impl EngineManager {
                     && let Some(haptic) = &*h {
                         haptic.trigger_error();
                     }
-                return RayResult::ConnectionError(format!("Runtime init: {}", e));
+                return RustRayResult::ConnectionError(format!("Runtime init: {}", e));
             }
         };
 
@@ -407,23 +407,23 @@ impl EngineManager {
                 haptic.trigger_success();
             }
 
-        RayResult::Ok
+        RustRayResult::Ok
     }
 
-    pub fn stop_engine(&self) -> RayResult {
+    pub fn stop_engine(&self) -> RustRayResult {
         let mut rt_guard = match self.runtime.lock() {
             Ok(g) => g,
-            Err(e) => return RayResult::PanicError(e.to_string()),
+            Err(e) => return RustRayResult::PanicError(e.to_string()),
         };
 
         if rt_guard.is_none() {
-            return RayResult::NotRunning;
+            return RustRayResult::NotRunning;
         }
 
         info!("Stopping engine...");
         *rt_guard = None; // Runtime dropped, tasks cancelled
         global_shared_stats().set_state(0);
-        RayResult::Ok
+        RustRayResult::Ok
     }
 
     pub fn get_stats_json(&self) -> String {
@@ -462,9 +462,9 @@ impl EngineManager {
     }
 
     // --- Storage Methods (Delegated) ---
-    pub fn init_storage(&self, path: String, key_hex: String) -> RayResult {
+    pub fn init_storage(&self, path: String, key_hex: String) -> RustRayResult {
         if STORAGE.get().is_some() {
-            return RayResult::Ok;
+            return RustRayResult::Ok;
         }
 
         let key_bytes = match hex::decode(&key_hex) {
@@ -473,22 +473,22 @@ impl EngineManager {
                 arr.copy_from_slice(&k);
                 arr
             }
-            Ok(_) => return RayResult::ConfigError("Key must be 32 bytes".into()),
-            Err(e) => return RayResult::ConfigError(format!("Invalid hex key: {}", e)),
+            Ok(_) => return RustRayResult::ConfigError("Key must be 32 bytes".into()),
+            Err(e) => return RustRayResult::ConfigError(format!("Invalid hex key: {}", e)),
         };
 
         let rt = match Runtime::new() {
             Ok(r) => r,
-            Err(e) => return RayResult::ConnectionError(e.to_string()),
+            Err(e) => return RustRayResult::ConnectionError(e.to_string()),
         };
 
         let res = rt.block_on(async { SurrealProvider::new(&path, key_bytes).await });
         match res {
             Ok(provider) => {
                 let _ = STORAGE.set(provider);
-                RayResult::Ok
+                RustRayResult::Ok
             }
-            Err(e) => RayResult::StorageError(format!("Storage init: {}", e)),
+            Err(e) => RustRayResult::StorageError(format!("Storage init: {}", e)),
         }
     }
 
@@ -497,47 +497,47 @@ impl EngineManager {
         name: String,
         outbound_json: String,
         sub_id: Option<String>,
-    ) -> RayResult {
+    ) -> RustRayResult {
         let storage = match STORAGE.get() {
             Some(s) => s,
-            None => return RayResult::NotRunning,
+            None => return RustRayResult::NotRunning,
         };
 
         let outbound: Outbound = match serde_json::from_str(&outbound_json) {
             Ok(o) => o,
-            Err(e) => return RayResult::ConfigError(e.to_string()),
+            Err(e) => return RustRayResult::ConfigError(e.to_string()),
         };
 
         let rt = Runtime::new().unwrap();
         match rt.block_on(storage.save_server(&name, &outbound, sub_id)) {
-            Ok(_) => RayResult::Ok,
-            Err(e) => RayResult::StorageError(e.to_string()),
+            Ok(_) => RustRayResult::Ok,
+            Err(e) => RustRayResult::StorageError(e.to_string()),
         }
     }
 
-    pub fn list_servers(&self) -> Result<String, RayResult> {
-        let storage = STORAGE.get().ok_or(RayResult::NotRunning)?;
-        let rt = Runtime::new().map_err(|e| RayResult::PanicError(e.to_string()))?;
+    pub fn list_servers(&self) -> Result<String, RustRayResult> {
+        let storage = STORAGE.get().ok_or(RustRayResult::NotRunning)?;
+        let rt = Runtime::new().map_err(|e| RustRayResult::PanicError(e.to_string()))?;
 
         rt.block_on(async {
             let servers = storage
                 .list_servers()
                 .await
-                .map_err(|e| RayResult::StorageError(e.to_string()))?;
+                .map_err(|e| RustRayResult::StorageError(e.to_string()))?;
             let models: Vec<ServerModel> = servers.into_iter().map(|(_, m)| m).collect();
-            serde_json::to_string(&models).map_err(|e| RayResult::ConfigError(e.to_string()))
+            serde_json::to_string(&models).map_err(|e| RustRayResult::ConfigError(e.to_string()))
         })
     }
 
-    pub fn delete_server(&self, id: String) -> RayResult {
+    pub fn delete_server(&self, id: String) -> RustRayResult {
         let storage = match STORAGE.get() {
             Some(s) => s,
-            None => return RayResult::NotRunning,
+            None => return RustRayResult::NotRunning,
         };
         let rt = Runtime::new().unwrap();
         match rt.block_on(storage.delete_server(&id)) {
-            Ok(_) => RayResult::Ok,
-            Err(e) => RayResult::StorageError(e.to_string()),
+            Ok(_) => RustRayResult::Ok,
+            Err(e) => RustRayResult::StorageError(e.to_string()),
         }
     }
 
@@ -564,7 +564,7 @@ impl EngineManager {
         rt.block_on(async {
             let manager = CoreManager::new("rustray");
             let core_type = match core_name.to_lowercase().as_str() {
-                "rustray" | "xray" | "sing-box" | "singbox" => CoreType::RustRay,
+                "rustray" | "rustray" | "sing-box" | "singbox" => CoreType::RustRay,
                 _ => return "unknown".to_string(),
             };
 
@@ -575,28 +575,28 @@ impl EngineManager {
         })
     }
 
-    pub fn update_core(&self, core_name: String) -> Result<String, RayResult> {
+    pub fn update_core(&self, core_name: String) -> Result<String, RustRayResult> {
         use crate::app::core_manager::{CoreManager, CoreType};
-        let rt = Runtime::new().map_err(|e| RayResult::PanicError(e.to_string()))?;
+        let rt = Runtime::new().map_err(|e| RustRayResult::PanicError(e.to_string()))?;
 
         rt.block_on(async {
             let manager = CoreManager::new("rustray");
             let core_type = match core_name.to_lowercase().as_str() {
-                "rustray" | "xray" | "sing-box" | "singbox" => CoreType::RustRay,
-                _ => return Err(RayResult::ConfigError("Unknown core type".to_string())),
+                "rustray" | "rustray" | "sing-box" | "singbox" => CoreType::RustRay,
+                _ => return Err(RustRayResult::ConfigError("Unknown core type".to_string())),
             };
 
             manager
                 .update_core(core_type)
                 .await
-                .map_err(|e| RayResult::ConnectionError(e.to_string()))
+                .map_err(|e| RustRayResult::ConnectionError(e.to_string()))
         })
     }
-    pub fn apply_routing_config(&self, config_json: String) -> RayResult {
+    pub fn apply_routing_config(&self, config_json: String) -> RustRayResult {
         // Parse Config
         let connect_config: ConnectConfig = match serde_json::from_str(&config_json) {
             Ok(c) => c,
-            Err(e) => return RayResult::ConfigError(e.to_string()),
+            Err(e) => return RustRayResult::ConfigError(e.to_string()),
         };
 
         // Build Internal Config
@@ -610,9 +610,9 @@ impl EngineManager {
         if let Some(stats_manager) = StatsManager::global() {
             info!("Applying atomic routing update...");
             stats_manager.update_config(config);
-            RayResult::Ok
+            RustRayResult::Ok
         } else {
-            RayResult::NotRunning
+            RustRayResult::NotRunning
         }
     }
 }
@@ -628,13 +628,13 @@ pub fn get_version() -> String {
 // ============================================================================
 
 #[uniffi::export]
-pub fn start(config_json: String) -> RayResult {
+pub fn start(config_json: String) -> RustRayResult {
     EngineManager::new().start_engine(config_json, None)
 }
 
 #[uniffi::export]
 pub fn stop() -> bool {
-    EngineManager::new().stop_engine() == RayResult::Ok
+    EngineManager::new().stop_engine() == RustRayResult::Ok
 }
 
 #[uniffi::export]
@@ -676,7 +676,7 @@ use crate::config::{
     TlsFragmentSettings, VlessOutboundSettings,
 };
 
-fn build_internal_config(connect_config: &ConnectConfig) -> Result<Config, RayResult> {
+fn build_internal_config(connect_config: &ConnectConfig) -> Result<Config, RustRayResult> {
     let mut stream_settings = StreamSettings::default();
     stream_settings.network = connect_config.network.clone();
     stream_settings.security = connect_config.security.clone();
@@ -727,7 +727,7 @@ fn build_internal_config(connect_config: &ConnectConfig) -> Result<Config, RayRe
             })
         }
         _ => {
-            return Err(RayResult::ConfigError(format!(
+            return Err(RustRayResult::ConfigError(format!(
                 "Unsupported: {}",
                 connect_config.protocol
             )));

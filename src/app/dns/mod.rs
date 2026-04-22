@@ -136,7 +136,7 @@ impl DnsServer {
         }
 
         // 3. FakeDNS (Strategy: UseIP is implied if fakedns is configured for now,
-        // normally controlled by queryStrategy config in Xray)
+        // normally controlled by queryStrategy config in RustRay)
         if let Some(fakedns) = &self.fakedns {
             let ip = fakedns.get_fake_ip(host);
             return Ok(vec![IpAddr::V4(ip)]);

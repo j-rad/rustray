@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package rustray.app.log.command;
+option go_package = "github.com/j-rad/rustray/app/log/command";
+
+enum LogLevel {
+  Debug = 0;
+  Info = 1;
+  Warning = 2;
+  Error = 3;
+  None = 4;
+}
+
+message Config {
+  LogLevel error_log_level = 1;
+  string error_log_path = 2;
+  string access_log_path = 3;
+}
+
+message RestartLoggerRequest {}
+message RestartLoggerResponse {}
+
+service LoggerService {
+  rpc RestartLogger(RestartLoggerRequest) returns (RestartLoggerResponse);
+}

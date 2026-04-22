@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package rustray.proxy.wireguard;
+option go_package = "github.com/j-rad/rustray/proxy/wireguard";
+
+message Peer {
+  string public_key = 1;
+  string endpoint = 2;
+  repeated string allowed_ips = 3;
+  string pre_shared_key = 4;
+}
+
+message Account {
+  string private_key = 1;
+  repeated string address = 2;
+  repeated Peer peers = 3;
+  uint32 mtu = 4;
+}
+
+message Config {
+  string private_key = 1;
+  repeated string address = 2;
+  repeated Peer peers = 3;
+  uint32 mtu = 4;
+}

@@ -113,7 +113,7 @@ fn bench_ffi_config_parse(c: &mut Criterion) {
         "port": 443,
         "uuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
         "protocol": "vless",
-        "flow": "xtls-rprx-vision",
+        "flow": "rustray-rustray-vision",
         "security": "reality",
         "reality_settings": {
             "public_key": "1234567890abcdef1234567890abcdef",
@@ -150,7 +150,7 @@ fn bench_ffi_config_serialize(c: &mut Criterion) {
         port: 443,
         uuid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee".to_string(),
         protocol: "vless".to_string(),
-        flow: Some("xtls-rprx-vision".to_string()),
+        flow: Some("rustray-rustray-vision".to_string()),
         network: "tcp".to_string(),
         security: "reality".to_string(),
         reality_settings: Some(RealityConfig {

@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package rustray.app.router.command;
+option go_package = "github.com/j-rad/rustray/app/router/command";
+
+message RoutingContext {
+  string inbound_tag = 1;
+  string network = 2;
+  string source_addr = 3;
+  uint32 source_port = 4;
+  string target_addr = 5;
+  uint32 target_port = 6;
+  string protocol = 7;
+  string user = 8;
+  map<string, string> attributes = 9;
+}
+
+message SubscribeRoutingStatsRequest {
+  bool field_selector = 1;
+}
+
+message RoutingStats {
+  string tag = 1;
+  uint32 count = 2;
+  uint64 bytes = 3;
+}
+
+message TestRouteRequest {
+  RoutingContext routing_context = 1;
+  bool publish_result = 2;
+}
+
+service RoutingService {
+  rpc SubscribeRoutingStats(SubscribeRoutingStatsRequest) returns (stream RoutingStats);
+  rpc TestRoute(TestRouteRequest) returns (RoutingContext);
+}

@@ -1,14 +1,13 @@
 {
   "log": { "loglevel": "error" },
   "inbounds": [{
-    "tag": "vless-in",
-    "port": 10081,
+    "port": 10082,
     "protocol": "vless",
     "settings": {
-      "clients": [{ "id": "509c3132-7232-4235-9626-267926132174", "email": "rust@ray.com" }],
+      "clients": [{ "id": "509c3132-7232-4235-9626-267926132174" }],
       "decryption": "none"
     },
     "streamSettings": { "network": "tcp" }
   }],
-  "outbounds": [{ "protocol": "freedom", "tag": "direct" }]
+  "outbounds": [{ "protocol": "freedom" }]
 }

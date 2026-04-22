@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package rustray.transport.internet;
+option go_package = "github.com/j-rad/rustray/transport/internet";
+
+import "common_serial.proto";
+
+message TransportConfig {
+  string protocol_name = 1;
+  rustray.common.serial.TypedMessage settings = 2;
+}
+
+message SecurityConfig {
+  string security_type = 1;
+  rustray.common.serial.TypedMessage settings = 2;
+}
+
+message StreamConfig {
+  string protocol_name = 1;
+  repeated TransportConfig transport_settings = 2;
+  string security_type = 3;
+  repeated SecurityConfig security_settings = 4;
+  SocketConfig socket_settings = 5;
+}
+
+message SocketConfig {
+  uint32 mark = 1;
+  bool tproxy = 2;
+  bool accept_proxy_protocol = 3;
+}
+
+message TcpConfig {
+  rustray.common.serial.TypedMessage header = 1;
+}
+
+message WebSocketConfig {
+  string path = 1;
+  map<string, string> headers = 2;
+}
+
+message GrpcConfig {
+  string service_name = 1;
+  bool multi_mode = 2;
+}

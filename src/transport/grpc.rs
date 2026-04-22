@@ -23,7 +23,7 @@ pub struct GrpcConfig {
 }
 
 /// A bidirectional stream wrapper that sends/receives raw bytes over gRPC.
-/// This mimics the behavior of Xray's "Tunneled" gRPC service.
+/// This mimics the behavior of RustRay's "Tunneled" gRPC service.
 pub struct GrpcStream {
     /// Sender for outbound data (converted to protobuf Bytes wrapper or raw)
     tx_outbound: tokio::sync::mpsc::Sender<Bytes>,
@@ -37,7 +37,7 @@ pub struct GrpcStream {
 }
 
 // We need a Proto definition for the tunnel.
-// Xray uses `transport.internet.grpc.encoding.Tunneled`.
+// RustRay uses `transport.internet.grpc.encoding.Tunneled`.
 // Message is "Hunk" { bytes data = 1; }
 
 pub mod proto {
@@ -74,7 +74,7 @@ impl GrpcStream {
                 data: bytes.to_vec(),
             });
 
-        // We need a specific path usually. Xray default is "/GunService/Tun" or configurable.
+        // We need a specific path usually. RustRay default is "/GunService/Tun" or configurable.
         let service_path = if config.service_name.starts_with('/') {
             config.service_name.clone()
         } else {
@@ -88,7 +88,7 @@ impl GrpcStream {
 
         let mut grpc_client = tonic::client::Grpc::new(channel);
 
-        // Path: /<ServiceName>/Tun (standard Xray convention)
+        // Path: /<ServiceName>/Tun (standard RustRay convention)
         // Actually usually "/GunService/Tun"
         let full_path = format!("{}/Tun", service_path);
         let path = http::uri::PathAndQuery::try_from(full_path)

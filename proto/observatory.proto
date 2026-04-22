@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package rustray.app.observatory.command;
+option go_package = "github.com/j-rad/rustray/app/observatory/command";
+
+message GetOutboundStatusRequest {
+  string tag = 1;
+}
+
+message OutboundStatus {
+  bool alive = 1;
+  int64 delay = 2;
+  int64 last_check_time = 3;
+  int64 last_error_time = 4;
+}
+
+message GetOutboundStatusResponse {
+  OutboundStatus status = 1;
+}
+
+service ObservatoryService {
+  rpc GetOutboundStatus(GetOutboundStatusRequest) returns (GetOutboundStatusResponse);
+}

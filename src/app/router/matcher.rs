@@ -90,7 +90,7 @@ impl DomainMatcher {
             if let Some(kw) = domain.strip_prefix("keyword:") {
                 self.patterns.push(kw.to_string());
                 self.pattern_indices.push(rule_idx);
-            // Xray: plain "google.com" is effectively "domain:google.com" (suffix)
+            // RustRay: plain "google.com" is effectively "domain:google.com" (suffix)
             } else if !domain.contains(':') {
                 let rev: String = domain.chars().rev().collect();
                 if let Some(&existing) = self.trie.get(&rev) {

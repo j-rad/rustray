@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package rustray.proxy.trojan;
+option go_package = "github.com/j-rad/rustray/proxy/trojan";
+
+message Account {
+  string password = 1;
+}
+
+message Fallback {
+  string alpn = 1;
+  string path = 2;
+  string dest = 3;
+  uint32 xver = 4;
+}
+
+message Config {
+  message User {
+    string password = 1;
+    uint32 level = 2;
+    string email = 3;
+  }
+  repeated User clients = 1;
+  repeated Fallback fallbacks = 2;
+}

@@ -17,7 +17,7 @@ async fn test_backend_switch_nftables_integrity() {
     // 2. Simulate Switch to RustRay
     println!("Switching to RustRay Core...");
     // In a real app, this would be:
-    // state_manager.set_active_backend(CoreType::Xray).await;
+    // state_manager.set_active_backend(CoreType::RustRay).await;
     // For this e2e test, we simulate the side-effects:
     // - Dispatch Stop signal to Native
     // - Start RustRay process

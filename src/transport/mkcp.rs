@@ -60,11 +60,11 @@ fn apply_config(settings: &KcpConfig) -> TokioKcpConfig {
 
     // Congestion Control
     let congestion = settings.congestion.unwrap_or(false); // false means enabled in generic config usually? 
-    // Wait, Xray config: "congestion": true means ENABLED.
+    // Wait, RustRay config: "congestion": true means ENABLED.
     // KCP "nc": 0 = regular congestion control, 1 = no congestion control (turbo).
     // So if congestion=true, nc=0. If congestion=false, nc=1?
     // Actually typically "uplink/downlink" settings imply we WANT turbo.
-    // Let's assume settings.congestion matches Xray semantics: true = enable CC.
+    // Let's assume settings.congestion matches RustRay semantics: true = enable CC.
 
     let nc = !congestion;
 
@@ -81,7 +81,7 @@ fn apply_config(settings: &KcpConfig) -> TokioKcpConfig {
     );
 
     // stream_mode: true implies pure byte stream (TCP-like). false = message mode.
-    // Xray usually treats it as a stream.
+    // RustRay usually treats it as a stream.
     config.stream = true;
 
     config

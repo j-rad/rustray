@@ -1,7 +1,7 @@
 // src/app/subscription_fetcher.rs
 //! Subscription URL fetcher and parser
 //!
-//! Supports fetching and parsing v2rayN, Xray, and Clash subscription formats.
+//! Supports fetching and parsing RustRayN, RustRay, and Clash subscription formats.
 
 use anyhow::{Result, anyhow};
 use base64::{Engine as _, engine::general_purpose};
@@ -12,8 +12,8 @@ use tracing::{debug, info, warn};
 /// Subscription format types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SubscriptionFormat {
-    /// Base64 encoded v2rayN format
-    V2rayN,
+    /// Base64 encoded RustRayN format
+    RustRayN,
     /// JSON format
     Json,
     /// Clash YAML format
@@ -67,7 +67,7 @@ impl SubscriptionFetcher {
         let format = self.detect_format(content);
 
         match format {
-            SubscriptionFormat::V2rayN => self.parse_v2rayn(content),
+            SubscriptionFormat::RustRayN => self.parse_rustrayn(content),
             SubscriptionFormat::Json => self.parse_json(content),
             SubscriptionFormat::Clash => self.parse_clash(content),
         }
@@ -82,13 +82,13 @@ impl SubscriptionFetcher {
         } else if trimmed.contains("proxies:") || trimmed.contains("proxy-groups:") {
             SubscriptionFormat::Clash
         } else {
-            // Assume base64 v2rayN
-            SubscriptionFormat::V2rayN
+            // Assume base64 RustRayN
+            SubscriptionFormat::RustRayN
         }
     }
 
-    /// Parse v2rayN format (base64 encoded links)
-    fn parse_v2rayn(&self, content: &str) -> Result<Vec<ParsedServer>> {
+    /// Parse RustRayN format (base64 encoded links)
+    fn parse_rustrayn(&self, content: &str) -> Result<Vec<ParsedServer>> {
         let decoded = general_purpose::STANDARD.decode(content.trim())?;
         let decoded_str = String::from_utf8(decoded)?;
 
@@ -241,7 +241,7 @@ impl SubscriptionFetcher {
                 }
             }
         } else if let Some(outbounds) = json.get("outbounds").and_then(|v| v.as_array()) {
-            // Standard Xray config
+            // Standard RustRay config
             for (i, item) in outbounds.iter().enumerate() {
                 if let Ok(server) = self.parse_json_outbound(item, &format!("Server-{}", i)) {
                     servers.push(server);
@@ -355,7 +355,7 @@ mod tests {
         );
         assert_eq!(
             fetcher.detect_format("dG1lc3M6Ly8="),
-            SubscriptionFormat::V2rayN
+            SubscriptionFormat::RustRayN
         );
     }
 

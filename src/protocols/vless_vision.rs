@@ -1,5 +1,5 @@
 // src/protocols/vless_vision.rs
-//! XTLS Vision Flow Implementation
+//! rustray Vision Flow Implementation
 //!
 //! Vision is a traffic obfuscation protocol that manipulates TLS record boundaries
 //! and adds random padding to defeat deep packet inspection and traffic analysis.
@@ -10,7 +10,7 @@
 //! - Random padding (900-1400 bytes) added to early TLS handshake records
 //! - TLS record boundary manipulation to hide fingerprints
 //!
-//! Reference: https://github.com/XTLS/Xrustray/discussions/1295
+//! Reference: https://github.com/rustray/RustRay/discussions/1295
 
 use crate::error::Result;
 use crate::protocols::flow_trait::Flow;
@@ -26,7 +26,7 @@ const TLS_RECORD_HEADER_LEN: usize = 5;
 const TLS_HANDSHAKE: u8 = 0x16;
 const TLS_APPLICATION_DATA: u8 = 0x17;
 
-// Vision padding ranges (bytes) matches Xrustray
+// Vision padding ranges (bytes) matches RustRay
 const VISION_PADDING_MIN: usize = 900;
 const VISION_PADDING_MAX: usize = 1400;
 
@@ -44,7 +44,7 @@ enum VisionState {
     Traffic,
 }
 
-/// XTLS Vision flow implementation
+/// rustray Vision flow implementation
 pub struct VisionFlow {
     state: VisionState,
 }
@@ -141,7 +141,7 @@ impl VisionFlow {
             }
             VisionState::Handshake { records_seen } => {
                 if records_seen < 5 {
-                    // Pad first 5 handshake records like Xray does (~ish)
+                    // Pad first 5 handshake records like RustRay does (~ish)
                     if let Some((content_type, _)) = Self::parse_tls_header(src) {
                         self.state = VisionState::Handshake {
                             records_seen: records_seen.saturating_add(1),
@@ -185,7 +185,7 @@ impl Flow for VisionFlow {
     }
 
     fn name(&self) -> &str {
-        "xtls-rprx-vision"
+        "vision"
     }
 
     fn is_active(&self) -> bool {

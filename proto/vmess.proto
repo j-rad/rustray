@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package rustray.proxy.vmess;
+option go_package = "github.com/j-rad/rustray/proxy/vmess";
+
+message Account {
+  string id = 1;
+  uint32 alter_id = 2;
+  string security = 3;
+}
+
+message Config {
+  message User {
+    string id = 1;
+    uint32 alter_id = 2;
+    uint32 level = 3;
+    string email = 4;
+  }
+  repeated User clients = 1;
+}

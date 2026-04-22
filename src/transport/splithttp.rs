@@ -79,7 +79,7 @@ impl SplitHttpStream {
     /// **Revised Implementation Strategy**:
     /// We will implement `SplitHttpStream` such that it requires the *caller* to provide the necessary logic or we implement a "Dummy" second connection.
     ///
-    /// **Actually**, `xrustray`'s SplitHTTP usually recycles the connection.
+    /// **Actually**, `rustray`'s SplitHTTP usually recycles the connection.
     /// Let's stick to the prompt: "Establish two underlying TCP/TLS connections".
     ///
     /// Since I cannot modify `transport::connect` to pass a dialer factory, I will assume `SplitHttpStream::new` takes *two* streams,

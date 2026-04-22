@@ -162,20 +162,20 @@ mod jni_exports {
         // Create a VPN callback that calls back to Java for socket protection
         // For now we use None as the callback is handled separately
         match engine.start_engine(config_with_fd, None) {
-            crate::ffi::RayResult::Ok => {
+            crate::ffi::RustRayResult::Ok => {
                 VPN_RUNNING.store(true, Ordering::Release);
                 info!("JNI: VPN engine started successfully");
                 0
             }
-            crate::ffi::RayResult::AlreadyRunning => {
+            crate::ffi::RustRayResult::AlreadyRunning => {
                 info!("JNI: VPN engine already running");
                 0
             }
-            crate::ffi::RayResult::ConfigError(e) => {
+            crate::ffi::RustRayResult::ConfigError(e) => {
                 error!("JNI: Config error: {}", e);
                 -4
             }
-            crate::ffi::RayResult::ConnectionError(e) => {
+            crate::ffi::RustRayResult::ConnectionError(e) => {
                 error!("JNI: Connection error: {}", e);
                 -5
             }
@@ -199,12 +199,12 @@ mod jni_exports {
 
         let engine = get_engine();
         match engine.stop_engine() {
-            crate::ffi::RayResult::Ok => {
+            crate::ffi::RustRayResult::Ok => {
                 VPN_RUNNING.store(false, Ordering::Release);
                 info!("JNI: VPN engine stopped successfully");
                 0
             }
-            crate::ffi::RayResult::NotRunning => {
+            crate::ffi::RustRayResult::NotRunning => {
                 info!("JNI: VPN engine was not running");
                 0
             }

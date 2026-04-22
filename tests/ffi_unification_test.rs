@@ -1,5 +1,5 @@
 #![cfg(not(target_arch = "wasm32"))]
-use rustray::ffi::{EngineManager, RayResult};
+use rustray::ffi::{EngineManager, RustRayResult};
 
 #[test]
 fn test_engine_lifecycle() {
@@ -31,25 +31,25 @@ fn test_engine_lifecycle() {
     // Note: run_server spawns tasks. If address is in use, it might error asyncly, but start_engine returns Ok if spawn succeeds.
     // However, build_internal_config might fail if config is bad.
 
-    assert_eq!(res, RayResult::Ok);
+    assert_eq!(res, RustRayResult::Ok);
 
     // 3. Check Running State
     // Attempting to start again should fail
     let res2 = engine.start_engine(config.to_string(), None);
-    assert_eq!(res2, RayResult::AlreadyRunning);
+    assert_eq!(res2, RustRayResult::AlreadyRunning);
 
     // 4. Stop Engine
     let stop_res = engine.stop_engine();
-    assert_eq!(stop_res, RayResult::Ok);
+    assert_eq!(stop_res, RustRayResult::Ok);
 
     // 5. Stop again should fail (NotRunning)
     let stop_res2 = engine.stop_engine();
-    assert_eq!(stop_res2, RayResult::NotRunning);
+    assert_eq!(stop_res2, RustRayResult::NotRunning);
 }
 
 #[test]
 fn test_invalid_config() {
     let engine = EngineManager::new();
     let res = engine.start_engine("{{}".to_string(), None); // Invalid JSON
-    assert!(matches!(res, RayResult::ConfigError(_)));
+    assert!(matches!(res, RustRayResult::ConfigError(_)));
 }

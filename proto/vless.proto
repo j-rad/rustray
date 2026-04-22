@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package rustray.proxy.vless;
+option go_package = "github.com/j-rad/rustray/proxy/vless";
+
+message Account {
+  string id = 1;
+  string flow = 2;
+  string encryption = 3;
+}
+
+message Fallback {
+  string alpn = 1;
+  string path = 2;
+  string dest = 3;
+  uint32 xver = 4;
+}
+
+message Config {
+  message User {
+    string id = 1;
+    uint32 level = 2;
+    string email = 3;
+    string flow = 4;
+  }
+  repeated User clients = 1;
+  string decryption = 2;
+  repeated Fallback fallbacks = 3;
+}

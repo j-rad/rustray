@@ -1,49 +1,33 @@
-#[cfg(feature = "tonic")]
-pub mod handler;
-#[cfg(feature = "tonic")]
+// src/api/mod.rs
+
 pub mod server;
-pub mod signaling;
-#[cfg(feature = "tonic")]
+pub mod handler;
 pub mod stats;
-
-#[cfg(feature = "minimal-server")]
-pub mod headless;
-
-#[cfg(feature = "minimal-server")]
-pub mod embedded_assets;
-
-#[cfg(feature = "minimal-server")]
-pub mod auth_middleware;
-
-#[cfg(feature = "minimal-server")]
-pub mod diagnostics_api;
-
-#[cfg(feature = "minimal-server")]
-pub mod speedtest_api;
-
-#[cfg(feature = "full-server")]
+pub mod signaling;
 pub mod users;
-
-#[cfg(feature = "full-server")]
+pub mod auth_middleware;
 pub mod audit_middleware;
+pub mod diagnostics_api;
+pub mod speedtest_api;
+pub mod headless;
+pub mod embedded_assets;
+pub mod handlers;
 
-// Generated proto modules from tonic-build
-#[cfg(feature = "tonic")]
 pub mod rustray {
+    pub mod core {
+        tonic::include_proto!("rustray.core");
+    }
+
     pub mod common {
-        pub mod serial {
-            tonic::include_proto!("rustray.common.serial");
-        }
         pub mod net {
             tonic::include_proto!("rustray.common.net");
         }
         pub mod protocol {
             tonic::include_proto!("rustray.common.protocol");
         }
-    }
-
-    pub mod core {
-        tonic::include_proto!("rustray.core");
+        pub mod serial {
+            tonic::include_proto!("rustray.common.serial");
+        }
     }
 
     pub mod app {
@@ -57,6 +41,30 @@ pub mod rustray {
                 tonic::include_proto!("rustray.app.stats.command");
             }
         }
+        pub mod router {
+            pub mod command {
+                tonic::include_proto!("rustray.app.router.command");
+            }
+        }
+        pub mod log {
+            pub mod command {
+                tonic::include_proto!("rustray.app.log.command");
+            }
+        }
+        pub mod observatory {
+            pub mod command {
+                tonic::include_proto!("rustray.app.observatory.command");
+            }
+        }
+    }
+
+    pub mod transport {
+        pub mod internet {
+            tonic::include_proto!("rustray.transport.internet");
+            pub mod reality {
+                tonic::include_proto!("rustray.transport.internet.reality");
+            }
+        }
     }
 
     pub mod proxy {
@@ -68,6 +76,21 @@ pub mod rustray {
         }
         pub mod trojan {
             tonic::include_proto!("rustray.proxy.trojan");
+        }
+        pub mod flow_j {
+            tonic::include_proto!("rustray.proxy.flow_j");
+        }
+        pub mod hysteria2 {
+            tonic::include_proto!("rustray.proxy.hysteria2");
+        }
+        pub mod tuic {
+            tonic::include_proto!("rustray.proxy.tuic");
+        }
+        pub mod wireguard {
+            tonic::include_proto!("rustray.proxy.wireguard");
+        }
+        pub mod warp {
+            tonic::include_proto!("rustray.proxy.warp");
         }
     }
 }

@@ -14,6 +14,7 @@ use actix_web::{
     App, Error, HttpRequest, HttpResponse, HttpServer, dev::ServiceRequest, dev::ServiceResponse,
     web,
 };
+// use actix_web_rustls::HttpServerRustls;
 use futures::Future;
 use futures::future::{Ready, ok};
 use std::pin::Pin;
@@ -141,12 +142,12 @@ pub async fn apply_config(
 
     // Try atomic update first (hot reload)
     match state.engine.apply_routing_config(config_str.clone()) {
-        crate::ffi::RayResult::Ok => {
+        crate::ffi::RustRayResult::Ok => {
             return HttpResponse::Ok().json(
                 serde_json::json!({"status": "ok", "message": "Configuration updated atomically"}),
             );
         }
-        crate::ffi::RayResult::NotRunning => {
+        crate::ffi::RustRayResult::NotRunning => {
             // Engine not running, fall through to start
         }
         err => {
@@ -160,7 +161,7 @@ pub async fn apply_config(
 
     // Start new
     match state.engine.start_engine(config_str, None) {
-        crate::ffi::RayResult::Ok => HttpResponse::Ok()
+        crate::ffi::RustRayResult::Ok => HttpResponse::Ok()
             .json(serde_json::json!({"status": "ok", "message": "Engine started"})),
         err => HttpResponse::BadRequest()
             .json(serde_json::json!({"status": "error", "message": err.to_string()})),

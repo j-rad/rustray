@@ -17,7 +17,7 @@ actix-http = "3.9.0"
 
 [features]
 default = ["full-server"]
-minimal-server = ["actix-web", "actix-rt", "actix-service", "prost", "dep:rust-embed", "dep:mime_guess", "dep:tracing-appender"]
+minimal-server = ["actix-web", "actix-rt", "actix-service", "prost", "dep:rust-embed", "dep:mime_guess", "dep:tracing-appender", "dep:actix-files"]
 # full-server includes quic by default for the server binary
 full-server = ["minimal-server", "tonic", "prost", "surrealdb", "actix-web-tonic", "quic"]
 # QUIC feature group - enables quiche, h3, and DNS-over-QUIC
@@ -74,6 +74,7 @@ tokio-util = { version = "0.7", features = ["compat"] }
 tonic = { version = "0.12", optional = true }
 prost = { version = "0.13", optional = true }
 actix-web = { version = "4.8.0", default-features = false, features = ["macros", "rustls", "rustls-0_23"], optional = true }
+actix-files = { version = "0.6.10", optional = true }
 actix-web-tonic = { version = "1.0.0", optional = true }
 actix-rt = { version = "2.11.0", optional = true }
 actix-service = { version = "2.0.3", optional = true }
@@ -226,4 +227,8 @@ assets = [
 conf-files = ["/etc/rustray/config.json"]
 maintainer-scripts = "debian/"
 
+
+
+# [lints]
+# workspace = true
 

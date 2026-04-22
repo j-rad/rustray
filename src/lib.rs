@@ -99,7 +99,7 @@ pub mod kernel;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod ffi;
 #[cfg(not(target_arch = "wasm32"))]
-pub use ffi::RayResult;
+pub use ffi::RustRayResult;
 
 /// Public module for shared types (migrated from shared-types crate)
 pub mod types;
@@ -141,11 +141,12 @@ use crate::router::Router;
 #[cfg(all(feature = "minimal-server", not(target_arch = "wasm32")))]
 use actix_web::HttpResponse;
 #[cfg(not(target_arch = "wasm32"))]
+use crate::db::DbManager;
+#[cfg(not(target_arch = "wasm32"))]
 use actix_web::{App, HttpServer, web};
 use std::sync::Arc;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::sync::broadcast;
-// use tracing::{error, info};
 
 // ============================================================================
 // Logging Initialization
@@ -280,6 +281,11 @@ pub async fn run_server(
     let dns_server = Arc::new(DnsServer::new(dns_config)?);
     tracing::info!("Internal DNS server initialized.");
 
+    // --- DATABASE INIT ---
+    let db_path = "database/rustray.db";
+    let db_manager = Arc::new(DbManager::new(db_path).await?);
+    tracing::info!("Embedded SurrealDB (SurrealKV) initialized at {}.", db_path);
+
     // --- APPLICATION INIT ---
 
     // 1. Create StatsManager (Unified State)
@@ -354,8 +360,11 @@ pub async fn run_server(
 
     let server = HttpServer::new(move || {
         let app_data = web::Data::new(stats_manager.clone());
+        let db_data = web::Data::new(db_manager.clone());
 
-        let mut app = App::new().app_data(app_data.clone());
+        let mut app = App::new()
+            .app_data(app_data.clone())
+            .app_data(db_data.clone());
 
         if metrics_enabled {
             app = app.route("/metrics", web::get().to(metrics::handle_metrics_request));
@@ -377,6 +386,12 @@ pub async fn run_server(
                     web::get().to(crate::api::headless::serve_static_asset),
                 );
         }
+
+        // --- New Monolithic REST API ---
+        app = app
+            .service(crate::api::server::get_inbounds)
+            .service(crate::api::server::create_user)
+            .service(crate::api::server::get_stats);
 
         app
     })

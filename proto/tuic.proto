@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package rustray.proxy.tuic;
+option go_package = "github.com/j-rad/rustray/proxy/tuic";
+
+message Account {
+  string uuid = 1;
+  string password = 2;
+}
+
+message Config {
+  message User {
+    string uuid = 1;
+    string password = 2;
+    uint32 level = 3;
+  }
+  repeated User users = 1;
+  string congestion_control = 2;
+  string udp_relay_mode = 3;
+  uint64 heartbeat_interval = 4;
+}

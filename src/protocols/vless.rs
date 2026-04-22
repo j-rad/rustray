@@ -404,7 +404,7 @@ pub async fn handle_inbound(
             .await;
     }
 
-    // Response Logic with XTLS Vision
+    // Response Logic with rustray Vision
     let response = [VERSION, 0];
     debug!("VLESS: Sending response header: {:?}", response);
     stream.write_all(&response).await?;
@@ -412,7 +412,7 @@ pub async fn handle_inbound(
 
     // Wrap stream with Vision if flow is enabled
     if let Some(flow) = &user.flow
-        && flow == "xtls-rprx-vision" {
+        && flow == "vision" {
             use crate::protocols::vless_vision::VisionStream;
             let vision_stream = VisionStream::new(stream);
             return router

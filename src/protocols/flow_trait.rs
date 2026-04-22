@@ -2,7 +2,7 @@
 //! Flow Protocol Abstraction
 //!
 //! Flow protocols are traffic obfuscation mechanisms that can be applied to proxy streams.
-//! Examples include XTLS Vision (TLS padding manipulation) and custom encryption flows.
+//! Examples include rustray Vision (TLS padding manipulation) and custom encryption flows.
 
 use crate::error::Result;
 use crate::transport::BoxedStream;
@@ -46,7 +46,7 @@ impl FlowFactory {
     /// Create a flow instance by name
     pub fn create(name: &str) -> Result<Box<dyn Flow>> {
         match name {
-            "xtls-rprx-vision" | "h2" => {
+            "vision" | "h2" => {
                 Ok(Box::new(crate::protocols::vless_vision::VisionFlow::new()))
             }
             // Flow-J is typically handled as a full transport, but we allow it here for compatibility
@@ -57,7 +57,7 @@ impl FlowFactory {
 
     /// Check if a flow name is supported
     pub fn is_supported(name: &str) -> bool {
-        matches!(name, "xtls-rprx-vision" | "h2" | "flow-j-vision")
+        matches!(name, "vision" | "h2" | "flow-j-vision")
     }
 }
 

@@ -72,7 +72,7 @@ pub fn get_log_path(app_id: &str) -> PathBuf {
     storage_path
 }
 
-/// Get the platform-specific directory for external binaries (Xray/Sing-box)
+/// Get the platform-specific directory for external binaries (RustRay/Sing-box)
 pub fn get_bin_path(app_id: &str, core_name: &str) -> PathBuf {
     let mut storage_path = get_storage_path(app_id);
     storage_path.set_file_name("bin");

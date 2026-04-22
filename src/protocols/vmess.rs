@@ -245,7 +245,7 @@ pub async fn handle_inbound(
 // Standard VMess AEAD Body:
 // [2 bytes Encrypted Length] -> Decrypt -> [N bytes Encrypted Chunk] -> Decrypt
 // Length is encrypted with "AEAD Header Key/IV"? No, usually derived rolling key.
-// Actually Xray VMess Body AEAD uses "Shake128" KDF for rolling keys?
+// Actually RustRay VMess Body AEAD uses "Shake128" KDF for rolling keys?
 // Or standard AES-GCM with specific nonce increment?
 // Assuming standard VMess AEAD:
 // Key/IV from header.
@@ -257,7 +257,7 @@ pub async fn handle_inbound(
 //    "The nonce is incremented for each chunk."
 //    "Chunk: [2 bytes Length (Encrypted)][AuthTag (16)][Payload (Encrypted)][AuthTag (16)]"
 //    Wait, Authenticated Length?
-//    Xray implementation:
+//    RustRay implementation:
 //    size = 2 bytes.
 //    encrypted_size = seal(size). (2 + 16 = 18 bytes).
 //    payload = ...
@@ -271,7 +271,7 @@ pub async fn handle_inbound(
 //    Usually: Nonce = [IV (12 bytes)] + [Counter (4 bytes big endian)]. Or similar.
 //    Actually VMess AEAD specifies `Shake128(IV)` to generate a stream of nonces?
 //    Or just plain counting.
-//    Xray `crypto/internal/chunk` uses `AEADChunk`.
+//    RustRay `crypto/internal/chunk` uses `AEADChunk`.
 //    It likely increments the nonce.
 //    We will assume standard: IV (12 bytes) is static? No, unsafe.
 //    Usually IV is 12 bytes. We can use `req_iv[2..14]`?
@@ -280,11 +280,11 @@ pub async fn handle_inbound(
 //    We'll use a Counter (u16) appended/XORed?
 //
 //    Production Implementation Note:
-//    For full compatibility, we match `xrustray`.
-//    Xray uses `AEADChunk`.
+//    For full compatibility, we match `rustray`.
+//    RustRay uses `AEADChunk`.
 //    Key = BodyKey (16 bytes).
 //    IV = BodyIV (16 bytes) -> KDF -> 12 bytes?
-//    Xray `vmess/aead.go`:
+//    RustRay `vmess/aead.go`:
 //    BodyKey = `req_key`. BodyIV = `req_iv`.
 //    It uses a `ChunkStream`.
 //    The nonce generation details are critical.
@@ -301,14 +301,14 @@ pub async fn handle_inbound(
 //    We will use the simple `Plain` body structure if possible?
 //    No, Security.
 //
-//    Correct Xray/V2Ray AEAD Body:
+//    Correct RustRay/V2Ray AEAD Body:
 //    Chunk: [2 bytes Len (Encrypted)][16 byte Tag] [Body (Encrypted)][16 byte Tag].
 //    Nonce:
 //    Header IV (16 bytes).
 //    NonceGenerator: `Shake128(IV)`.Read(12 bytes) per chunk?
 //    This is likely.
 //    For now, I'll implement a stub `VmessStream` that mostly just passes through (acting as "None" encryption)
-//    BUT standard Xray will fail.
+//    BUT standard RustRay will fail.
 //    Since I cannot verify exact crypto params, I will mark this as "Partial Implementation" or
 //    implement standard AES-CFB which is legacy but often supported?
 //    No, "AEAD forced".
