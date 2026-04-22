@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package rustray.common.protocol;
 option csharp_namespace = "Rustray.Common.Protocol";
-option go_package = "github.com/FaezBarghasa/rustray/common/protocol";
+option go_package = "github.com/j-rad/rustray/common/protocol";
 option java_package = "com.rustray.common.protocol";
 option java_multiple_files = true;
 

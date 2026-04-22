@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package rustray.common.net;
 option csharp_namespace = "Rustray.Common.Net";
-option go_package = "github.com/FaezBarghasa/rustray/common/net";
+option go_package = "github.com/j-rad/rustray/common/net";
 option java_package = "com.rustray.common.net";
 option java_multiple_files = true;
 

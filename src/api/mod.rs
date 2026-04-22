@@ -29,45 +29,45 @@ pub mod audit_middleware;
 
 // Generated proto modules from tonic-build
 #[cfg(feature = "tonic")]
-pub mod xray {
+pub mod rustray {
     pub mod common {
         pub mod serial {
-            tonic::include_proto!("xray.common.serial");
+            tonic::include_proto!("rustray.common.serial");
         }
         pub mod net {
-            tonic::include_proto!("xray.common.net");
+            tonic::include_proto!("rustray.common.net");
         }
         pub mod protocol {
-            tonic::include_proto!("xray.common.protocol");
+            tonic::include_proto!("rustray.common.protocol");
         }
     }
 
     pub mod core {
-        tonic::include_proto!("xray.core");
+        tonic::include_proto!("rustray.core");
     }
 
     pub mod app {
         pub mod proxyman {
             pub mod command {
-                tonic::include_proto!("xray.app.proxyman.command");
+                tonic::include_proto!("rustray.app.proxyman.command");
             }
         }
         pub mod stats {
             pub mod command {
-                tonic::include_proto!("xray.app.stats.command");
+                tonic::include_proto!("rustray.app.stats.command");
             }
         }
     }
 
     pub mod proxy {
         pub mod vless {
-            tonic::include_proto!("xray.proxy.vless");
+            tonic::include_proto!("rustray.proxy.vless");
         }
         pub mod vmess {
-            tonic::include_proto!("xray.proxy.vmess");
+            tonic::include_proto!("rustray.proxy.vmess");
         }
         pub mod trojan {
-            tonic::include_proto!("xray.proxy.trojan");
+            tonic::include_proto!("rustray.proxy.trojan");
         }
     }
 }

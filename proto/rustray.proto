@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package rustray.core;
 option csharp_namespace = "Rustray.Core";
-option go_package = "github.com/FaezBarghasa/rustray/core";
+option go_package = "github.com/j-rad/rustray";
 option java_package = "com.rustray.core";
 option java_multiple_files = true;
 

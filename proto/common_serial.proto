@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package rustray.common.serial;
 option csharp_namespace = "Rustray.Common.Serial";
-option go_package = "github.com/FaezBarghasa/rustray/common/serial";
+option go_package = "github.com/j-rad/rustray/common/serial";
 option java_package = "com.rustray.common.serial";
 option java_multiple_files = true;
 
