@@ -25,8 +25,8 @@ pub async fn wrap_tls_client(
 ) -> Result<BoxedStream> {
     debug!("TLS: Wrapping client connection to {}", server_name);
 
-    if let Some(pqc) = &settings.pqc {
-        if pqc.enabled {
+    if let Some(pqc) = &settings.pqc
+        && pqc.enabled {
             debug!("TLS: PQC Handshake initiated");
             let server_pk_hex = pqc.server_public_key.as_deref().unwrap_or("");
             let server_pk = hex::decode(server_pk_hex)
@@ -37,7 +37,6 @@ pub async fn wrap_tls_client(
             stream =
                 crate::transport::pqc::wrap_pqc_client(stream, &server_pk, &signing_kp).await?;
         }
-    }
 
     if let Some(fingerprint_str) = &settings.fingerprint {
         debug!("TLS: Using fingerprint: {}", fingerprint_str);
@@ -112,14 +111,13 @@ pub async fn wrap_tls_server(
 ) -> Result<BoxedStream> {
     debug!("TLS: Accepting server connection");
 
-    if let Some(pqc) = &settings.pqc {
-        if pqc.enabled {
+    if let Some(pqc) = &settings.pqc
+        && pqc.enabled {
             debug!("TLS: PQC Server Handshake initiated");
             // Generate ephemeral keypair if persistent storage missing format
             let server_kp = crate::transport::pqc::HybridKeypair::generate();
             stream = crate::transport::pqc::wrap_pqc_server(stream, &server_kp).await?;
         }
-    }
 
     let certs = settings
         .certificates

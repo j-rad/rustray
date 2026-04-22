@@ -3,7 +3,7 @@ mod headless_tests {
     use actix_web::{App, test, web};
     use rustray::api::headless::{HeadlessState, PskMiddleware, apply_config, get_stats};
     use rustray::ffi::EngineManager;
-    use std::sync::Arc;
+    
 
     /// Test Headless API PSK Auth and Stats
     #[actix_web::test]

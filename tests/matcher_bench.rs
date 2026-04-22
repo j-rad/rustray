@@ -1,4 +1,3 @@
-use ipnetwork::IpNetwork;
 use rustray::app::router::matcher::{DomainMatcher, IpMatcher};
 
 #[test]

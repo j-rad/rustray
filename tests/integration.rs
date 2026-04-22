@@ -455,7 +455,7 @@ mod tests {
         // Try to generate certs. If fails, we might fail the test or skip.
         // Assuming openssl is present in CI env.
         let status = Command::new("openssl")
-            .args(&[
+            .args([
                 "req",
                 "-x509",
                 "-newkey",

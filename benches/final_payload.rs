@@ -1,6 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::path::Path;
-use std::process::Command;
 
 fn binary_size_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("production_payload");

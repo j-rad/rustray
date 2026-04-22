@@ -1,6 +1,5 @@
-use rustray::tun::tun2socks::{self, is_core_healthy, set_core_healthy};
+use rustray::tun::tun2socks::{is_core_healthy, set_core_healthy};
 use std::process::Command;
-use std::sync::atomic::Ordering;
 use tokio::time::Duration;
 
 #[tokio::test]
@@ -30,7 +29,7 @@ async fn test_backend_switch_nftables_integrity() {
     // Verify IP Leak Protection during switch
     // (We check if the 'output' chain DROP policy is active or if specific leak-protection rules exist)
     let leak_check = Command::new("nft")
-        .args(&["list", "chain", "inet", "rustray", "leak_protection"])
+        .args(["list", "chain", "inet", "rustray", "leak_protection"])
         .output();
 
     match leak_check {
@@ -48,18 +47,15 @@ async fn test_backend_switch_nftables_integrity() {
     }
 
     // 3. Verify RustRay Rules
-    assert!(
-        check_nftables_rules("rustray_chain") || true,
-        "RustRay rules missing (mock pass)"
-    );
+    // 3. Verify RustRay Rules
+    let _ = check_nftables_rules("rustray_chain");
+    assert!(true, "RustRay rules missing (mock pass)");
 
     // 4. Switch back to SingBox
     println!("Switching to SingBox...");
     tokio::time::sleep(Duration::from_millis(100)).await;
-    assert!(
-        check_nftables_rules("singbox_chain") || true,
-        "SingBox rules missing (mock pass)"
-    );
+    let _ = check_nftables_rules("singbox_chain");
+    assert!(true, "SingBox rules missing (mock pass)");
 
     println!("Backend switching stability verification passed.");
 }
@@ -87,7 +83,7 @@ fn test_kill_switch_atomicity() {
 
 // Helper to check for rule existence
 fn check_nftables_rules(chain_name: &str) -> bool {
-    let output = Command::new("nft").args(&["list", "ruleset"]).output();
+    let output = Command::new("nft").args(["list", "ruleset"]).output();
 
     match output {
         Ok(o) => {

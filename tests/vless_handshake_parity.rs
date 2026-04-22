@@ -1,5 +1,5 @@
 use rustray::config::{
-    self, ApiConfig, Config, FreedomSettings, Inbound, InboundSettings, Outbound, OutboundSettings,
+    ApiConfig, Config, FreedomSettings, Inbound, InboundSettings, Outbound, OutboundSettings,
     VlessSettings, VlessUser,
 };
 use std::time::Duration;

@@ -19,3 +19,4 @@ pub mod sniffer;
 pub mod state_manager;
 pub mod stats;
 pub mod subscription_fetcher;
+pub mod behavior_synth;

@@ -245,8 +245,8 @@ impl SignalingService {
                                             peer_map.insert(peer_signal.peer_id.clone(), peer_info.clone());
 
                                             // If new peer, send join notification
-                                            if is_new {
-                                                if let Some(addr) = peer_info.public_addr {
+                                            if is_new
+                                                && let Some(addr) = peer_info.public_addr {
                                                     let join_signal = PeerJoinSignal {
                                                         peer_id: peer_signal.peer_id,
                                                         public_addr: addr,
@@ -259,7 +259,6 @@ impl SignalingService {
                                                         warn!("Peer join channel closed");
                                                     }
                                                 }
-                                            }
                                         }
                                     }
                                 }

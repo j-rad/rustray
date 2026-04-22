@@ -139,7 +139,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncRead for WsStreamAdapter<S> {
                         Message::Binary(data) => {
                             // Tungstenite returns Vec<u8> or Bytes depending on config/version.
                             // Assuming Vec<u8>, Bytes::from(vec) takes ownership (zero copy relative to vec).
-                            this.read_buf = Bytes::from(data);
+                            this.read_buf = data;
                             // Loop back to step 1 to return data
                         }
                         Message::Close(_) => return Poll::Ready(Ok(())), // EOF
@@ -151,7 +151,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncRead for WsStreamAdapter<S> {
                     }
                 }
                 Poll::Ready(Some(Err(e))) => {
-                    return Poll::Ready(Err(io::Error::new(io::ErrorKind::Other, e)));
+                    return Poll::Ready(Err(io::Error::other(e)));
                 }
                 Poll::Ready(None) => return Poll::Ready(Ok(())), // EOF
                 Poll::Pending => return Poll::Pending,
@@ -184,9 +184,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncWrite for WsStreamAdapter<S> {
         match this.inner.poll_ready_unpin(cx) {
             Poll::Ready(Ok(())) => match this.inner.start_send_unpin(msg) {
                 Ok(_) => Poll::Ready(Ok(buf.len())),
-                Err(e) => Poll::Ready(Err(io::Error::new(io::ErrorKind::Other, e))),
+                Err(e) => Poll::Ready(Err(io::Error::other(e))),
             },
-            Poll::Ready(Err(e)) => Poll::Ready(Err(io::Error::new(io::ErrorKind::Other, e))),
+            Poll::Ready(Err(e)) => Poll::Ready(Err(io::Error::other(e))),
             Poll::Pending => Poll::Pending,
         }
     }
@@ -195,13 +195,13 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncWrite for WsStreamAdapter<S> {
         self.get_mut()
             .inner
             .poll_flush_unpin(cx)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+            .map_err(io::Error::other)
     }
 
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         self.get_mut()
             .inner
             .poll_close_unpin(cx)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+            .map_err(io::Error::other)
     }
 }

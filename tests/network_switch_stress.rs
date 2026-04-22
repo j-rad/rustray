@@ -1,6 +1,5 @@
 // tests/network_switch_stress.rs
 use rustray::config::Config;
-use rustray::run_server;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Barrier;
@@ -16,7 +15,7 @@ async fn network_switch_simulation() {
 async fn test_network_switch_resilience() {
     let config: Config = Default::default(); // Provide a default or mock config
     let barrier = Arc::new(Barrier::new(2));
-    let (tx, rx) = tokio::sync::broadcast::channel(1); // Add shutdown channel
+    let (_tx, rx) = tokio::sync::broadcast::channel(1); // Add shutdown channel
 
     let server_handle = {
         let barrier = barrier.clone();

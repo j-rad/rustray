@@ -34,8 +34,8 @@ pub struct Config {
 
 impl Config {
     pub fn validate(&self) -> Result<(), String> {
-        if let Some(routing) = &self.routing {
-            if let Some(rules) = &routing.rules {
+        if let Some(routing) = &self.routing
+            && let Some(rules) = &routing.rules {
                 let _visited: HashSet<String> = HashSet::new();
                 for rule in rules {
                     // Detect circular balancer references or invalid tags
@@ -45,7 +45,7 @@ impl Config {
                         let balancer_exists = routing
                             .balancers
                             .as_ref()
-                            .map_or(false, |b| b.iter().any(|x| x.tag == balancer_tag));
+                            .is_some_and(|b| b.iter().any(|x| x.tag == balancer_tag));
                         if !balancer_exists {
                             return Err(format!(
                                 "Rule references non-existent balancer: {}",
@@ -57,7 +57,6 @@ impl Config {
                     // This basic check ensures at least target existence.
                 }
             }
-        }
 
         if let Some(isp) = &self.isp {
             let preset = isp.presets.iter().find(|p| p.name == isp.active_preset);

@@ -1,7 +1,4 @@
-use rustray::config::TlsSettings;
-use rustray::transport::tls;
 use rustray::transport::utls;
-use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 

@@ -1,5 +1,5 @@
 // src/api/stats.rs
-use crate::api::rustray::app::stats::command::{
+use crate::api::xray::app::stats::command::{
     GetStatsOnlineIpListResponse, GetStatsRequest, GetStatsResponse, QueryStatsRequest,
     QueryStatsResponse, Stat, SysStatsRequest, SysStatsResponse,
     stats_service_server::StatsService,

@@ -3,6 +3,7 @@ pub mod dokodemo;
 pub mod http;
 pub mod reverse_portal;
 pub mod socks;
+pub mod nginx_decoy;
 
 use crate::app::dns::DnsServer;
 use crate::app::reverse::ReverseManager;
@@ -196,16 +197,8 @@ impl InboundManager {
                                             vless::listen_stream(r, s, stream, cfg, source).await
                                         }
                                         InboundSettings::Trojan(cfg) => {
-                                            // Trojan requires server logic.
-                                            // We usually define a password.
-                                            // Let's assume cfg.clients[0].password for single user simplicity
-                                            let password = cfg
-                                                .clients
-                                                .first()
-                                                .map(|c| c.password.as_str())
-                                                .unwrap_or("");
                                             trojan::TrojanInbound::handle_stream(
-                                                stream, password, r, None, source,
+                                                stream, Arc::new(cfg), s, r, None, source,
                                             )
                                             .await
                                         }

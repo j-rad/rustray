@@ -207,11 +207,10 @@ fn extract_sni_from_client_hello(data: &[u8]) -> Option<String> {
             let name_len = u16::from_be_bytes([data[pos + 3], data[pos + 4]]) as usize;
             pos += 5;
 
-            if pos + name_len <= data.len() {
-                if let Ok(sni) = std::str::from_utf8(&data[pos..pos + name_len]) {
+            if pos + name_len <= data.len()
+                && let Ok(sni) = std::str::from_utf8(&data[pos..pos + name_len]) {
                     return Some(sni.to_string());
                 }
-            }
             break;
         }
 

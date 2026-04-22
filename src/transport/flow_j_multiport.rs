@@ -15,18 +15,15 @@ use tracing::{debug, info, warn};
 
 /// Rotation strategy for the multiport pool.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Default)]
 pub enum MultiportStrategy {
     /// Rotate sequentially through a fixed pool of pre-bound ports.
+    #[default]
     StaticPool,
     /// Randomly select a port from the pool on every rotation.
     DynamicRandom,
 }
 
-impl Default for MultiportStrategy {
-    fn default() -> Self {
-        Self::StaticPool
-    }
-}
 
 /// A multiport pool that manages multiple sockets for QUIC packet rotation.
 pub struct MultiportSocketPool {
@@ -234,4 +231,310 @@ fn parse_port_range(range: &str) -> Result<(u16, u16)> {
     }
 
     Ok((start, end))
+}
+
+// ============================================================================
+// MULTIPORT ASYNC UDP SOCKET WRAPPER
+// ============================================================================
+
+/// Per-port packet counters for ICMP-unreachable detection and adaptive rotation.
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct PortHealth {
+    /// Local address of this socket.
+    local_addr: SocketAddr,
+    /// Total datagrams sent through this port.
+    sent: u64,
+    /// Consecutive send failures (ICMP unreachable, ECONNREFUSED, etc.).
+    consecutive_failures: u32,
+    /// Whether this port has been marked dead and removed from rotation.
+    dead: bool,
+}
+
+impl PortHealth {
+    fn new(addr: SocketAddr) -> Self {
+        Self {
+            local_addr: addr,
+            sent: 0,
+            consecutive_failures: 0,
+            dead: false,
+        }
+    }
+
+    /// Record a successful send.
+    fn record_success(&mut self) {
+        self.sent += 1;
+        self.consecutive_failures = 0;
+    }
+
+    /// Record a send failure. Returns true if the port should be considered dead.
+    fn record_failure(&mut self) -> bool {
+        self.consecutive_failures += 1;
+        // Mark dead after 5 consecutive failures (ICMP unreachable pattern)
+        if self.consecutive_failures >= 5 {
+            self.dead = true;
+        }
+        self.dead
+    }
+
+    /// Loss ratio (0.0 to 1.0).
+    #[allow(dead_code)]
+    fn loss_ratio(&self) -> f32 {
+        if self.sent == 0 {
+            return 0.0;
+        }
+        self.consecutive_failures as f32 / self.sent.min(100) as f32
+    }
+}
+
+/// Manages datagram-level round-robin with per-packet jitter across
+/// multiple UDP sockets. Each `select_socket()` call returns the next
+/// healthy socket index, applying a small random offset to break
+/// deterministic patterns visible to DPI.
+pub struct RoundRobinJitter {
+    /// Number of sockets in the pool.
+    pool_size: usize,
+    /// Current index in the round-robin sequence.
+    cursor: usize,
+    /// Datagrams sent since last jitter offset.
+    since_jitter: u32,
+    /// Jitter window: after this many sends, apply a random skip.
+    jitter_window: u32,
+}
+
+impl RoundRobinJitter {
+    /// Create a new jitter selector for a pool of `pool_size` sockets.
+    pub fn new(pool_size: usize) -> Self {
+        Self {
+            pool_size,
+            cursor: 0,
+            since_jitter: 0,
+            jitter_window: rand::thread_rng().gen_range(3..=8),
+        }
+    }
+
+    /// Select the next socket index with jitter applied.
+    pub fn select(&mut self, health: &[PortHealth]) -> usize {
+        if self.pool_size == 0 {
+            return 0;
+        }
+
+        self.since_jitter += 1;
+
+        // Apply jitter: occasionally skip 1-2 sockets to break patterns
+        if self.since_jitter >= self.jitter_window {
+            self.since_jitter = 0;
+            self.jitter_window = rand::thread_rng().gen_range(3..=8);
+            let skip = rand::thread_rng().gen_range(1..=2);
+            self.cursor = (self.cursor + skip) % self.pool_size;
+        }
+
+        // Find next healthy socket
+        let start = self.cursor;
+        loop {
+            if self.cursor < health.len() && !health[self.cursor].dead {
+                let selected = self.cursor;
+                self.cursor = (self.cursor + 1) % self.pool_size;
+                return selected;
+            }
+            self.cursor = (self.cursor + 1) % self.pool_size;
+            if self.cursor == start {
+                // All ports dead; return first one as fallback
+                return 0;
+            }
+        }
+    }
+}
+
+/// Dynamically re-bind a new random port within the configured range,
+/// replacing a dead port in the pool.
+pub async fn reroll_port(
+    listen_addr: &str,
+    port_range: (u16, u16),
+    existing_ports: &[SocketAddr],
+) -> Result<(Arc<UdpSocket>, std::net::UdpSocket, SocketAddr)> {
+    let mut rng = rand::thread_rng();
+    let _range_size = (port_range.1 - port_range.0 + 1) as usize;
+
+    // Try up to 20 random ports within the range
+    for _ in 0..20 {
+        let port = rng.gen_range(port_range.0..=port_range.1);
+
+        // Skip if this port is already in use
+        let addr_str = format!("{}:{}", listen_addr, port);
+        let candidate: SocketAddr = addr_str
+            .parse()
+            .map_err(|e| anyhow::anyhow!("Invalid address: {}", e))?;
+        if existing_ports.contains(&candidate) {
+            continue;
+        }
+
+        match std::net::UdpSocket::bind(&addr_str) {
+            Ok(std_socket) => {
+                std_socket.set_nonblocking(true)?;
+                let std_clone = std_socket.try_clone()?;
+                let local_addr = std_socket.local_addr()?;
+                let tokio_socket = UdpSocket::from_std(std_socket)?;
+
+                info!("Multiport: Re-rolled dead port → {}", local_addr);
+                return Ok((Arc::new(tokio_socket), std_clone, local_addr));
+            }
+            Err(_) => continue,
+        }
+    }
+
+    Err(anyhow::anyhow!(
+        "Failed to re-roll port after 20 attempts in range {}-{}",
+        port_range.0,
+        port_range.1,
+    ))
+}
+
+// ============================================================================
+// TESTS
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_port_range_valid() {
+        let (start, end) = parse_port_range("10000-20000").unwrap();
+        assert_eq!(start, 10000);
+        assert_eq!(end, 20000);
+    }
+
+    #[test]
+    fn test_parse_port_range_invalid() {
+        assert!(parse_port_range("abc").is_err());
+        assert!(parse_port_range("20000-10000").is_err());
+    }
+
+    #[test]
+    fn test_port_health_failure_detection() {
+        let addr: SocketAddr = "127.0.0.1:5000".parse().unwrap();
+        let mut health = PortHealth::new(addr);
+
+        for _ in 0..4 {
+            assert!(!health.record_failure());
+        }
+        // 5th consecutive failure should mark dead
+        assert!(health.record_failure());
+        assert!(health.dead);
+    }
+
+    #[test]
+    fn test_port_health_recovery() {
+        let addr: SocketAddr = "127.0.0.1:5000".parse().unwrap();
+        let mut health = PortHealth::new(addr);
+
+        // 3 failures then a success resets counter
+        for _ in 0..3 {
+            health.record_failure();
+        }
+        health.record_success();
+        assert_eq!(health.consecutive_failures, 0);
+        assert!(!health.dead);
+    }
+
+    #[test]
+    fn test_round_robin_jitter_cycles() {
+        let health = vec![
+            PortHealth::new("127.0.0.1:5000".parse().unwrap()),
+            PortHealth::new("127.0.0.1:5001".parse().unwrap()),
+            PortHealth::new("127.0.0.1:5002".parse().unwrap()),
+        ];
+        let mut rr = RoundRobinJitter::new(3);
+
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..30 {
+            seen.insert(rr.select(&health));
+        }
+        // Should visit all 3 sockets
+        assert_eq!(seen.len(), 3, "All sockets should be visited");
+    }
+
+    #[test]
+    fn test_round_robin_skips_dead_ports() {
+        let mut health = vec![
+            PortHealth::new("127.0.0.1:5000".parse().unwrap()),
+            PortHealth::new("127.0.0.1:5001".parse().unwrap()),
+            PortHealth::new("127.0.0.1:5002".parse().unwrap()),
+        ];
+        health[1].dead = true;
+
+        let mut rr = RoundRobinJitter::new(3);
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..30 {
+            seen.insert(rr.select(&health));
+        }
+        // Should not select index 1 (dead)
+        assert!(!seen.contains(&1), "Dead port should not be selected");
+        assert!(seen.contains(&0));
+        assert!(seen.contains(&2));
+    }
+
+    #[tokio::test]
+    async fn test_multiport_bind_diverse_ports() {
+        let pool = MultiportSocketPool::bind(
+            "127.0.0.1",
+            "30000-30063",
+            5,
+            MultiportStrategy::DynamicRandom,
+        )
+        .await
+        .unwrap();
+
+        // Should have bound multiple sockets
+        assert!(
+            pool.tokio_sockets.len() >= 2,
+            "Expected ≥2 sockets, got {}",
+            pool.tokio_sockets.len()
+        );
+
+        // All sockets should have unique local ports
+        let mut ports = std::collections::HashSet::new();
+        for sock in &pool.tokio_sockets {
+            ports.insert(sock.local_addr().unwrap().port());
+        }
+        assert_eq!(
+            ports.len(),
+            pool.tokio_sockets.len(),
+            "All ports should be unique"
+        );
+    }
+
+    #[test]
+    fn test_rotation_mechanics() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let mut pool = rt.block_on(async {
+            MultiportSocketPool::bind("127.0.0.1", "31000-31015", 5, MultiportStrategy::StaticPool)
+                .await
+                .unwrap()
+        });
+
+        let initial_idx = pool.current_idx;
+
+        // Send enough packets to trigger rotation
+        for _ in 0..20 {
+            pool.rotate_if_needed();
+        }
+
+        // At least one rotation should have occurred
+        assert_ne!(
+            pool.current_idx, initial_idx,
+            "At least one rotation should occur after 20 packets"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_reroll_port() {
+        let existing: Vec<SocketAddr> = vec!["127.0.0.1:32000".parse().unwrap()];
+        let result = reroll_port("127.0.0.1", (32000, 32063), &existing).await;
+        assert!(result.is_ok(), "Should successfully reroll a port");
+        let (_, _, addr) = result.unwrap();
+        assert_ne!(addr.port(), 32000, "Should not reuse existing port");
+        assert!(addr.port() >= 32000 && addr.port() <= 32063);
+    }
 }

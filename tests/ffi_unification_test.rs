@@ -1,7 +1,5 @@
 #![cfg(not(target_arch = "wasm32"))]
 use rustray::ffi::{EngineManager, RayResult};
-use std::sync::Arc;
-use tokio::time::Duration;
 
 #[test]
 fn test_engine_lifecycle() {

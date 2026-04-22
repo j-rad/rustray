@@ -41,6 +41,9 @@ pub mod config;
 pub mod inbounds;
 
 #[cfg(not(target_arch = "wasm32"))]
+pub mod adapters;
+
+#[cfg(not(target_arch = "wasm32"))]
 pub mod outbounds;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -51,6 +54,18 @@ pub mod protocols;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod transport;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod fec;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod p2p;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod orchestrator;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod plugin;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod api;
@@ -76,6 +91,10 @@ pub mod panic_handler;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tun;
+
+/// Kernel-level eBPF subsystem for packet mutation (Linux only).
+#[cfg(target_os = "linux")]
+pub mod kernel;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod ffi;
@@ -291,8 +310,8 @@ pub async fn run_server(
     tracing::info!("InboundManager initialized.");
 
     // 6. Initialize and run Observatory
-    if let Some(obs_config) = stats_manager.config.load().observatory.clone() {
-        if !obs_config.probe_interval.is_empty() && obs_config.probe_interval != "0" {
+    if let Some(obs_config) = stats_manager.config.load().observatory.clone()
+        && !obs_config.probe_interval.is_empty() && obs_config.probe_interval != "0" {
             tracing::info!("Observatory module is enabled.");
             let observatory = Arc::new(Observatory::new(
                 obs_config,
@@ -301,7 +320,6 @@ pub async fn run_server(
             ));
             observatory.run();
         }
-    }
 
     // 7. Spawn InboundManager as a background task
     let inbound_stats = stats_manager.clone();

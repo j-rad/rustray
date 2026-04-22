@@ -72,11 +72,10 @@ impl RuleCompiler {
             matcher.insert(net, rule_idx, tag.to_string());
         } else {
             // Try parsing single IP as /32 or /128
-            if let Ok(ip) = ip_str.parse::<std::net::IpAddr>() {
-                if let Ok(net) = IpNetwork::new(ip, if ip.is_ipv4() { 32 } else { 128 }) {
+            if let Ok(ip) = ip_str.parse::<std::net::IpAddr>()
+                && let Ok(net) = IpNetwork::new(ip, if ip.is_ipv4() { 32 } else { 128 }) {
                     matcher.insert(net, rule_idx, tag.to_string());
                 }
-            }
         }
     }
 

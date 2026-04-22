@@ -260,49 +260,7 @@ impl Default for ConnectionTracker {
 static GLOBAL_TRACKER: OnceLock<ConnectionTracker> = OnceLock::new();
 
 pub fn global_tracker() -> &'static ConnectionTracker {
-    GLOBAL_TRACKER.get_or_init(|| ConnectionTracker::new())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_tracker_state_transitions() {
-        let tracker = ConnectionTracker::new();
-        assert_eq!(tracker.get_state(), ConnectionState::Disconnected);
-        tracker.set_state(ConnectionState::Connecting);
-        assert_eq!(tracker.get_state(), ConnectionState::Connecting);
-    }
-
-    #[test]
-    fn test_session_tracking() {
-        let tracker = ConnectionTracker::new();
-        let session = ActiveSession::new(
-            "uuid-1".into(),
-            "127.0.0.1:1234".into(),
-            "google.com:443".into(),
-            "tcp".into(),
-        );
-
-        tracker.register_session(session);
-        assert_eq!(tracker.get_stats().active_connections, 1);
-
-        tracker.add_traffic("uuid-1", 100, 200);
-
-        let sessions = tracker.get_active_sessions();
-        assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].uploaded, 100);
-        assert_eq!(sessions[0].downloaded, 200);
-
-        // Check global aggregation
-        let stats = tracker.get_stats();
-        assert_eq!(stats.bytes_uploaded, 100);
-        assert_eq!(stats.bytes_downloaded, 200);
-
-        tracker.end_session("uuid-1");
-        assert_eq!(tracker.get_stats().active_connections, 0);
-    }
+    GLOBAL_TRACKER.get_or_init(ConnectionTracker::new)
 }
 
 // --- Tracked Stream Wrapper ---
@@ -385,5 +343,47 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for TrackedStream<S> {
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
         Pin::new(&mut self.inner).poll_shutdown(cx)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tracker_state_transitions() {
+        let tracker = ConnectionTracker::new();
+        assert_eq!(tracker.get_state(), ConnectionState::Disconnected);
+        tracker.set_state(ConnectionState::Connecting);
+        assert_eq!(tracker.get_state(), ConnectionState::Connecting);
+    }
+
+    #[test]
+    fn test_session_tracking() {
+        let tracker = ConnectionTracker::new();
+        let session = ActiveSession::new(
+            "uuid-1".into(),
+            "127.0.0.1:1234".into(),
+            "google.com:443".into(),
+            "tcp".into(),
+        );
+
+        tracker.register_session(session);
+        assert_eq!(tracker.get_stats().active_connections, 1);
+
+        tracker.add_traffic("uuid-1", 100, 200);
+
+        let sessions = tracker.get_active_sessions();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].uploaded, 100);
+        assert_eq!(sessions[0].downloaded, 200);
+
+        // Check global aggregation
+        let stats = tracker.get_stats();
+        assert_eq!(stats.bytes_uploaded, 100);
+        assert_eq!(stats.bytes_downloaded, 200);
+
+        tracker.end_session("uuid-1");
+        assert_eq!(tracker.get_stats().active_connections, 0);
     }
 }

@@ -26,7 +26,7 @@ pub async fn listen_stream(
         }
 
         // Window scan for double CRLF
-        if let Some(_) = find_double_crlf(&buf) {
+        if find_double_crlf(&buf).is_some() {
             // Found header
             break;
         }

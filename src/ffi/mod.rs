@@ -20,9 +20,11 @@ use crate::config::Outbound;
 pub use crate::ffi::mobile::{acquire_ios_buffer, init_ios_pool};
 
 // ============================================================================
-// CONFIG TYPES (Previously in ffi.rs)
+// CONFIG TYPES (UniFFI Records)
 // ============================================================================
 
+/// Connection configuration for mobile apps.
+/// This structure is converted to an internal `Config` by the engine.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 pub struct ConnectConfig {
     pub address: String,
@@ -179,12 +181,23 @@ fn default_parity() -> u32 {
 pub struct SharedStatsBuffer {
     pub bytes_uploaded: AtomicU64,
     pub bytes_downloaded: AtomicU64,
+    /// Total number of active TCP/UDP streams being tracked.
     pub active_connections: AtomicU64,
+    /// Historical count of all connections since engine start.
     pub total_connections: AtomicU64,
+    /// Unix timestamp (ms) of the last stats pull.
     pub last_update: AtomicU64,
+    /// Current engine state: 0=Stopped, 1=Starting, 2=Connected, 3=Error.
     pub connection_state: AtomicU64,
+    /// Error counter for troubleshooting.
     pub errors: AtomicU64,
     valid: AtomicBool,
+}
+
+impl Default for SharedStatsBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SharedStatsBuffer {
@@ -321,11 +334,10 @@ impl EngineManager {
         };
 
         if rt_guard.is_some() {
-            if let Ok(h) = self.haptic.lock() {
-                if let Some(haptic) = &*h {
+            if let Ok(h) = self.haptic.lock()
+                && let Some(haptic) = &*h {
                     haptic.trigger_error();
                 }
-            }
             return RayResult::AlreadyRunning;
         }
 
@@ -333,11 +345,10 @@ impl EngineManager {
         let connect_config: ConnectConfig = match serde_json::from_str(&config_json) {
             Ok(c) => c,
             Err(e) => {
-                if let Ok(h) = self.haptic.lock() {
-                    if let Some(haptic) = &*h {
+                if let Ok(h) = self.haptic.lock()
+                    && let Some(haptic) = &*h {
                         haptic.trigger_error();
                     }
-                }
                 return RayResult::ConfigError(e.to_string());
             }
         };
@@ -346,11 +357,10 @@ impl EngineManager {
         let config = match build_internal_config(&connect_config) {
             Ok(c) => c,
             Err(e) => {
-                if let Ok(h) = self.haptic.lock() {
-                    if let Some(haptic) = &*h {
+                if let Ok(h) = self.haptic.lock()
+                    && let Some(haptic) = &*h {
                         haptic.trigger_error();
                     }
-                }
                 return e;
             }
         };
@@ -359,11 +369,10 @@ impl EngineManager {
         let runtime = match Runtime::new() {
             Ok(rt) => rt,
             Err(e) => {
-                if let Ok(h) = self.haptic.lock() {
-                    if let Some(haptic) = &*h {
+                if let Ok(h) = self.haptic.lock()
+                    && let Some(haptic) = &*h {
                         haptic.trigger_error();
                     }
-                }
                 return RayResult::ConnectionError(format!("Runtime init: {}", e));
             }
         };
@@ -393,11 +402,10 @@ impl EngineManager {
         *rt_guard = Some(runtime);
         global_shared_stats().set_state(1);
 
-        if let Ok(h) = self.haptic.lock() {
-            if let Some(haptic) = &*h {
+        if let Ok(h) = self.haptic.lock()
+            && let Some(haptic) = &*h {
                 haptic.trigger_success();
             }
-        }
 
         RayResult::Ok
     }

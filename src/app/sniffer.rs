@@ -30,11 +30,10 @@ impl Sniffer {
         max_peek_size: usize,
     ) -> io::Result<(SniffResult, BytesMut)> {
         // 1. Check FakeDNS first
-        if let Some(fake) = fakedns {
-            if let Some(domain) = fake.get_domain_from_ip(dest_ip) {
+        if let Some(fake) = fakedns
+            && let Some(domain) = fake.get_domain_from_ip(dest_ip) {
                 return Ok((SniffResult::ResolvedDomain { domain }, BytesMut::new()));
             }
-        }
 
         // 2. Fallback to traffic sniffing
         Self::sniff(stream, max_peek_size).await

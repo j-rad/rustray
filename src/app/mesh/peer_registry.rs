@@ -29,7 +29,6 @@
 //! [signature 64 B]  — Ed25519 signature over (peer_id || addr || timestamp || nonce)
 //! ```
 
-use rand::RngCore;
 use ring::signature::{self, KeyPair};
 use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS};
 use sha2::{Digest, Sha256};
@@ -177,7 +176,7 @@ impl PeerAnnouncement {
 
     fn compute_full_hash(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
-        hasher.update(&self.to_bytes());
+        hasher.update(self.to_bytes());
         hasher.finalize().into()
     }
 
@@ -712,7 +711,7 @@ mod tests {
     async fn test_gossip_ingest_rejects_own_announcement() {
         let registry = PeerRegistry::new();
         let config = GossipConfig::new_random_id(make_addr(7777), "localhost".to_string(), 1883);
-        let local_id = config.local_peer_id;
+        let _local_id = config.local_peer_id;
 
         // Setup local_key_pair identical to config to sign announcement
         let local_key_pair = signature::Ed25519KeyPair::from_pkcs8(&config.keypair_pkcs8).unwrap();

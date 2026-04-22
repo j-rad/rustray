@@ -149,8 +149,8 @@ pub async fn connect(
     let scid = quiche::ConnectionId::from_ref(&scid);
 
     let mut multiport = None;
-    if let Some(mp_cfg) = multiport_config {
-        if mp_cfg.enabled {
+    if let Some(mp_cfg) = multiport_config
+        && mp_cfg.enabled {
             let strategy = match mp_cfg.strategy.as_deref() {
                 Some("dynamic") | Some("DynamicRandom") => {
                     crate::transport::flow_j_multiport::MultiportStrategy::DynamicRandom
@@ -166,7 +166,6 @@ pub async fn connect(
             .await?;
             multiport = Some(Arc::new(Mutex::new(mp)));
         }
-    }
 
     let socket = multiport
         .as_ref()
@@ -313,29 +312,26 @@ impl QuicConnection {
                     to: socket.local_addr().unwrap_or(from),
                 };
 
-                match guard.conn.recv(&mut buf[..len], recv_info) {
-                    Ok(_) => {
-                        // Wake streams
-                        for stream_id in guard.conn.readable() {
-                            // Check if it's a new stream (for accept) or existing
-                            if let Some(waker) = guard.wakers.remove(&stream_id) {
-                                waker.wake();
-                            } else {
-                                // New stream?
-                                if !guard.readable_streams.contains(&stream_id) {
-                                    guard.readable_streams.push(stream_id);
-                                    if let Some(w) = guard.accept_waker.take() {
-                                        w.wake();
-                                    }
+                if guard.conn.recv(&mut buf[..len], recv_info).is_ok() {
+                    // Wake streams
+                    for stream_id in guard.conn.readable() {
+                        // Check if it's a new stream (for accept) or existing
+                        if let Some(waker) = guard.wakers.remove(&stream_id) {
+                            waker.wake();
+                        } else {
+                            // New stream?
+                            if !guard.readable_streams.contains(&stream_id) {
+                                guard.readable_streams.push(stream_id);
+                                if let Some(w) = guard.accept_waker.take() {
+                                    w.wake();
                                 }
                             }
                         }
-                        // Wake datagrams
-                        if let Some(w) = guard.dgram_waker.take() {
-                            w.wake();
-                        }
                     }
-                    Err(_) => {}
+                    // Wake datagrams
+                    if let Some(w) = guard.dgram_waker.take() {
+                        w.wake();
+                    }
                 }
             }
 
@@ -371,7 +367,6 @@ impl QuicConnection {
                         let socket = guard.socket.clone();
                         drop(guard);
                         let _ = socket.send_to(&payload, dest).await;
-                        guard = state.lock().await;
                     }
                     Err(quiche::Error::Done) => break,
                     Err(_) => break,
@@ -548,7 +543,7 @@ impl AsyncRead for QuicStreamHandle {
                 guard.wakers.insert(self.stream_id, cx.waker().clone());
                 return Poll::Pending;
             }
-            Err(e) => return Poll::Ready(Err(io::Error::new(io::ErrorKind::Other, e))),
+            Err(e) => return Poll::Ready(Err(io::Error::other(e))),
         }
 
         // If we fell through (0 byte read or similar), retry later
@@ -583,7 +578,7 @@ impl AsyncWrite for QuicStreamHandle {
                 cx.waker().wake_by_ref();
                 Poll::Pending
             }
-            Err(e) => Poll::Ready(Err(io::Error::new(io::ErrorKind::Other, e))),
+            Err(e) => Poll::Ready(Err(io::Error::other(e))),
         }
     }
 

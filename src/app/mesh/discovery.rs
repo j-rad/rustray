@@ -104,7 +104,7 @@ impl DiscoveryManager {
             while let Ok(event) = receiver.recv_async().await {
                 match event {
                     ServiceEvent::ServiceResolved(info) => {
-                        let remote_name = info.get_fullname();
+                        let _remote_name = info.get_fullname();
                         // Get IP and Port
                         let ips = info.get_addresses();
                         if ips.is_empty() {
@@ -116,7 +116,7 @@ impl DiscoveryManager {
                             Err(_) => continue,
                         };
                         let port = info.get_port();
-                        let addr = SocketAddr::new(ip, port);
+                        let _addr = SocketAddr::new(ip, port);
 
                         // Get peer ID from properties
                         let mesh_ann_str = match info.get_property_val_str("mesh_ann") {

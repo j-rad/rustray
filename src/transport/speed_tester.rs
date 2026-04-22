@@ -70,7 +70,7 @@ impl SpeedTester {
                         if elapsed.as_millis() as u64 >= AUTO_KILL_CHECK_MS {
                             let current_bytes = total.load(Ordering::Relaxed);
                             let bps =
-                                (current_bytes * 8) as u64 * 1000 / elapsed.as_millis() as u64;
+                                (current_bytes * 8) * 1000 / elapsed.as_millis() as u64;
                             if bps < AUTO_KILL_THRESHOLD_BPS * 8 {
                                 // Threshold is bps? 256kbps = 256000 bits/s
                                 // Prompt says "throughput is below 256kbps"
@@ -95,7 +95,7 @@ impl SpeedTester {
         let aborted = abort_flag.load(Ordering::Relaxed);
 
         let bps = if duration.as_millis() > 0 {
-            (total_loaded * 8) as u64 * 1000 / duration.as_millis() as u64
+            (total_loaded * 8) * 1000 / duration.as_millis() as u64
         } else {
             0
         };

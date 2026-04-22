@@ -267,15 +267,14 @@ pub async fn handle_inbound(
     debug!("VLESS: Received version: {}", ver);
     if ver != VERSION {
         // Fallback Logic
-        if let Some(fallbacks) = &settings.fallbacks {
-            if let Some(fb) = fallbacks
+        if let Some(fallbacks) = &settings.fallbacks
+            && let Some(fb) = fallbacks
                 .iter()
                 .find(|f| f.alpn.is_none() && f.path.is_none())
             {
                 let dest = &fb.dest;
                 return pipe_to_fallback(stream, dest, Some(&header_buf)).await;
             }
-        }
         return Err(VlessError::InvalidVersion(ver).into());
     }
 
@@ -293,18 +292,23 @@ pub async fn handle_inbound(
 
     debug!("VLESS: User found: {}", user.is_some());
     if user.is_none() {
-        if let Some(fallbacks) = &settings.fallbacks {
-            if let Some(fb) = fallbacks
+        if let Some(fallbacks) = &settings.fallbacks
+            && let Some(fb) = fallbacks
                 .iter()
                 .find(|f| f.alpn.is_none() && f.path.is_none())
             {
                 return pipe_to_fallback(stream, &fb.dest, Some(&header_buf)).await;
             }
-        }
         return Err(VlessError::UnknownClient.into());
     }
 
     let user = user.unwrap();
+    
+    // Record online IP
+    if let Some(ref email) = user.email {
+        state.record_online_ip(email, source.clone());
+    }
+
     let client_id = Uuid::from_bytes(uuid_bytes);
     let user_level = user.level.unwrap_or(0);
     let policy = state.policy_manager.get_policy(user_level);
@@ -397,8 +401,7 @@ pub async fn handle_inbound(
         stream.flush().await?;
 
         return handle_udp_relay(stream, host, port)
-            .await
-            .map_err(|e| e.into());
+            .await;
     }
 
     // Response Logic with XTLS Vision
@@ -408,15 +411,14 @@ pub async fn handle_inbound(
     stream.flush().await?;
 
     // Wrap stream with Vision if flow is enabled
-    if let Some(flow) = &user.flow {
-        if flow == "xtls-rprx-vision" {
+    if let Some(flow) = &user.flow
+        && flow == "xtls-rprx-vision" {
             use crate::protocols::vless_vision::VisionStream;
             let vision_stream = VisionStream::new(stream);
             return router
                 .route_stream(Box::new(vision_stream), host, port, source, policy)
                 .await;
         }
-    }
 
     router
         .route_stream(stream, host, port, source, policy)

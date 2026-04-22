@@ -22,8 +22,10 @@ use tracing::{debug, info, warn};
 /// - `Jumbo`: Jumbo frames (9000) for high-performance LAN/Data Center.
 /// - `Custom`: User-defined MTU value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum MtuProfile {
     /// 1400 MTU - Conservative for cellular/mobile networks
+    #[default]
     Cellular,
     /// 1500 MTU - Standard ethernet MTU
     Standard,
@@ -63,11 +65,6 @@ impl MtuProfile {
     }
 }
 
-impl Default for MtuProfile {
-    fn default() -> Self {
-        MtuProfile::Cellular
-    }
-}
 
 impl From<u16> for MtuProfile {
     fn from(mtu: u16) -> Self {
@@ -577,7 +574,7 @@ pub fn alloc_aligned_buffer(size: usize) -> Vec<u8> {
 pub fn alloc_page_aligned_buffer(size: usize) -> Vec<u8> {
     let buf = alloc_aligned_buffer(size);
     let addr = buf.as_ptr() as usize;
-    if addr % PAGE_ALIGN != 0 {
+    if !addr.is_multiple_of(PAGE_ALIGN) {
         debug!(
             "Buffer at {:#x} not page-aligned (offset {}). \
              Performance may be sub-optimal on DMA paths.",

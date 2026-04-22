@@ -7,7 +7,7 @@ use clap::Parser;
 use rustray::config;
 use rustray::error::Result;
 use tokio::sync::broadcast;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]

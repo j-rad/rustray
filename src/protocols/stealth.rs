@@ -244,7 +244,7 @@ fn chrono_like_date() -> String {
     let mut year = 1970u64;
     let mut remaining = days;
     loop {
-        let days_in_year = if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
+        let days_in_year = if year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400)) {
             366
         } else {
             365
@@ -257,7 +257,7 @@ fn chrono_like_date() -> String {
     }
     let month_days = [
         31u64,
-        if year % 4 == 0 { 29 } else { 28 },
+        if year.is_multiple_of(4) { 29 } else { 28 },
         31,
         30,
         31,
@@ -588,7 +588,7 @@ impl HeaderEncryptor {
         let mut hasher = Sha256::new();
         hasher.update(b"flow-j-header-key");
         hasher.update(uuid);
-        hasher.update(&timestamp.to_be_bytes());
+        hasher.update(timestamp.to_be_bytes());
         hasher.update(nonce);
         let key_bytes = hasher.finalize();
 

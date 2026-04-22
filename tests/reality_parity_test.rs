@@ -13,10 +13,7 @@ use digest::KeyInit;
 use hmac::{Hmac, Mac};
 use rustray::transport::flow_j_reality::{generate_auth_tag, verify_auth_tag};
 use sha2::{Digest, Sha256};
-use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
-use tokio::time::{Duration, timeout};
+use tokio::time::Duration;
 use x25519_dalek::{PublicKey, StaticSecret};
 
 // ============================================================================
@@ -370,7 +367,7 @@ async fn bench_reality_handshake_latency() {
         let client_secret = StaticSecret::random_from_rng(rand::thread_rng());
         let server_secret = StaticSecret::random_from_rng(rand::thread_rng());
 
-        let client_public = PublicKey::from(&client_secret);
+        let _client_public = PublicKey::from(&client_secret);
         let server_public = PublicKey::from(&server_secret);
 
         let _shared = client_secret.diffie_hellman(&server_public);

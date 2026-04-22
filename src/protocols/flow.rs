@@ -65,14 +65,14 @@ impl FlowInbound {
 
         // 1. Read Nonce (12 bytes)
         let mut nonce_bytes = [0u8; NONCE_LEN];
-        if let Err(_) = stream.read_exact(&mut nonce_bytes).await {
+        if stream.read_exact(&mut nonce_bytes).await.is_err() {
             return Self::fallback(stream, None, &settings.fallback).await;
         }
         let nonce = Nonce::from_slice(&nonce_bytes);
 
         // 2. Read Initial Chunk (Ciphertext)
         let mut ciphertext = vec![0u8; INITIAL_READ_LEN];
-        if let Err(_) = stream.read_exact(&mut ciphertext).await {
+        if stream.read_exact(&mut ciphertext).await.is_err() {
             // If we can't read enough, maybe connection died or it's a probe.
             // Pass whatever we read + nonce to fallback?
             return Self::fallback(

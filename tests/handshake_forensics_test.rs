@@ -1,7 +1,7 @@
 // tests/handshake_forensics_test.rs
 use rustray::config::TlsFragmentSettings;
 use rustray::transport::tls_fragment::FragmentStream;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 

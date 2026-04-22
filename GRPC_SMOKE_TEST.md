@@ -46,15 +46,18 @@ grpcurl -plaintext -d '{}' localhost:10087 rustray.app.proxyman.command.HandlerS
    Total inbounds now: 2
    ✅ test-vless-grpc found in inbound list
 
-📊 Test 4: Querying traffic statistics...
-   Found 0 stat counters
-   ℹ️  No traffic stats yet (expected for fresh start)
+🛠️  Test 4: Altering inbound (Adding User)...
+   ✅ User added successfully via AlterInbound
 
-💻 Test 5: Getting system statistics...
-   Uptime: 15 seconds
-   ℹ️  Memory stats are placeholder (rr-ui uses its own sysinfo)
+📊 Test 5: Querying traffic statistics...
+   Found 2 stat counters
+   ✅ Counters for 'test-vless-grpc' active
 
-🗑️  Test 6: Removing test inbound...
+💻 Test 6: Getting system statistics...
+   Uptime: 45 seconds
+   ✅ Memory and CPU metrics reported
+
+🗑️  Test 7: Removing test inbound...
    ✅ Inbound removed successfully
 
 ✅ All gRPC integration tests completed!
@@ -68,10 +71,11 @@ The integration test simulates a typical `rr-ui` workflow:
 1. **Connection**: Establishes gRPC clients for HandlerService and StatsService
 2. **List Inbounds**: Queries existing inbound configurations (equivalent to dashboard loading)
 3. **Add Inbound**: Simulates adding a new VLESS user via the panel
-4. **Verify**: Confirms the inbound was added to the configuration
-5. **Query Stats**: Fetches traffic statistics (for dashboard display)
-6. **System Stats**: Gets uptime and system metrics
-7. **Remove Inbound**: Cleans up by removing the test inbound
+4. **Alter Inbound**: Dynamically adds/removes users from an existing inbound
+5. **Verify**: Confirms the inbound was added to the configuration
+6. **Query Stats**: Fetches traffic statistics (for dashboard display)
+7. **System Stats**: Gets uptime and system metrics
+8. **Remove Inbound**: Cleans up by removing the test inbound
 
 ## Manual Testing with grpcurl
 
@@ -99,23 +103,17 @@ grpcurl -plaintext -d '{"isOnlyTags": false}' \
   rustray.app.proxyman.command.HandlerService/ListInbounds
 ```
 
-### Add Inbound (Complex Example)
+### Alter Inbound (Add User Example)
 
 ```bash
 grpcurl -plaintext -d '{
-  "inbound": {
-    "tag": "manual-test",
-    "receiverSettings": {
-      "type": "rustray.proxy.vless.Receiver",
-      "value": "eyJwb3J0IjogMTIzNDV9"
-    },
-    "proxySettings": {
-      "type": "rustray.proxy.vless.Inbound",
-      "value": "eyJjbGllbnRzIjogW3siaWQiOiAidGVzdCJ9XX0="
-    }
+  "tag": "manual-test",
+  "operation": {
+    "type": "AddUser",
+    "value": "eyJlbWFpbCI6ICJ0ZXN0QGV4YW1wbGUuY29tIiwgImlkIjogIm5ldy11dWlkIn0="
   }
 }' localhost:10085 \
-  rustray.app.proxyman.command.HandlerService/AddInbound
+  rustray.app.proxyman.command.HandlerService/AlterInbound
 ```
 
 ## Troubleshooting
@@ -143,12 +141,11 @@ Once the smoke test passes:
 
 1. **Deploy**: Use rustray as the backend for rr-ui
 2. **Monitor**: Check logs for gRPC requests from the panel
-3. **Iterate**: Implement missing methods (AlterInbound) as needed
+3. **Scale**: Implement PQC handshake for signaling security
 
 ## Known Limitations
 
-- `AlterInbound`/`AlterOutbound`: Returns "Unimplemented" (rr-ui uses delete+add pattern)
-- `GetSysStats`: Returns placeholder memory stats (rr-ui has its own sysinfo)
-- `GetInboundUsers`: Needs user enumeration logic
+- `get_stats_online_ip_list`: Returns placeholder empty list
+- `GetSysStats`: Memory stats are calculated via `sysinfo`, but may vary by OS
 
 These are **non-blocking** for rr-ui integration.

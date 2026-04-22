@@ -195,11 +195,7 @@ impl StatsManager {
                 stats.avg_latency = latency;
             } else {
                 // EMA alpha = 0.2
-                let diff = if latency > stats.avg_latency {
-                    latency - stats.avg_latency
-                } else {
-                    stats.avg_latency - latency
-                };
+                let diff = latency.abs_diff(stats.avg_latency);
                 stats.jitter = (stats.jitter as f64 * 0.8 + diff as f64 * 0.2) as u64;
                 stats.avg_latency = (stats.avg_latency as f64 * 0.8 + latency as f64 * 0.2) as u64;
             }

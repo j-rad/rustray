@@ -1,7 +1,7 @@
 // src/app/metrics/prober.rs
 use crate::error::Result;
 use std::time::{Duration, Instant};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 
@@ -106,14 +106,13 @@ impl Prober {
             flow_j_jitter_multiplier: 1.0,
         };
 
-        if let Some(isp) = &metrics.isp_detected {
-            if isp == "MCI" {
+        if let Some(isp) = &metrics.isp_detected
+            && isp == "MCI" {
                 // Adversarial hardening for MCI: clamp MSS to hide fingerprint
                 // and increase jitter to defeat AI timing classifiers.
                 shaping.mss = 1200;
                 shaping.flow_j_jitter_multiplier = 2.5;
             }
-        }
 
         shaping
     }

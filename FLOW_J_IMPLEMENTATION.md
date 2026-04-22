@@ -6,7 +6,8 @@ Flow-J is a next-generation, multi-transport polyglot proxy protocol designed fo
 
 - **Mode A (Direct Stealth)**: REALITY-based with probe detection and certificate stealing
 - **Mode B (CDN Relay)**: HTTP Upgrade and xhttp for CDN traversal
-- **Mode C (IoT Camouflage)**: MQTT tunneling disguised as sensor data
+- **Mode C (IoT Camouflage)**: MQTT and Industrial Parasite steganography
+- **Mode D (Brutal-QUIC)**: High-performance fixed-rate QUIC transport for lossy networks
 
 ## Architecture
 
@@ -17,6 +18,7 @@ Flow-J separates control and data planes, allowing:
 - Probe detection and fallback to real destinations
 - Multiple simultaneous transport streams
 - Automatic mode selection based on network conditions
+- eBPF-based packet fragmentation and SNI slicing
 
 ### Zero-Copy Optimization
 
@@ -29,6 +31,7 @@ Flow-J separates control and data planes, allowing:
 - Configurable Reed-Solomon erasure coding (10+3 default)
 - Per-stream FEC for packet recovery on unreliable networks
 - Graceful degradation under packet loss
+- Integrated with Brutal-QUIC for massive throughput in 20%+ loss environments
 
 ## Module Structure
 
@@ -40,6 +43,7 @@ src/transport/
   ├── flow_j_reality.rs   # Mode A: REALITY TLS with probe detection
   ├── flow_j_cdn.rs       # Mode B: HTTP Upgrade & xhttp handlers
   ├── flow_j_mqtt.rs      # Mode C: MQTT IoT camouflage
+  ├── flow_j_brutal.rs    # Mode D: Brutal-QUIC transport
   ├── flow_j_fec.rs       # Elastic FEC encoder/decoder
   └── tls_camouflage.rs   # Chrome TLS fingerprint mimicry
 ```
@@ -50,11 +54,12 @@ src/transport/
 
 **FlowJConfig** supports:
 
-- `mode`: Auto, Reality, Cdn, Mqtt
+- `mode`: Auto, Reality, Cdn, Mqtt, Brutal
 - `reality`: RealitySettings (dest, serverNames, privateKey, shortIds)
 - `http_upgrade`: HttpUpgradeSettings (path, host, headers)
 - `xhttp`: XhttpSettings (upload_path, download_path, h2)
 - `mqtt`: MqttSettings (broker, topics, credentials, qos)
+- `brutal`: BrutalSettings (up_mbps, down_mbps)
 - `fec`: FecSettings (enabled, data_shards, parity_shards)
 
 **Inbound Handler**:
@@ -65,7 +70,7 @@ src/transport/
 
 **Outbound Handler**:
 
-- Auto-selects optimal mode based on availability
+- Auto-selects optimal mode based on availability (orchestrated)
 - Creates Flow-J header with nonce and timestamp
 - Dispatches to appropriate transport
 
@@ -117,11 +122,10 @@ src/transport/
 {"sensor":"temperature","timestamp":1702800000,"data":"<base64>"}
 ```
 
-**MqttTunnel**:
+**Industrial Parasite**:
 
-- Connects to broker with randomized client ID
-- Subscribes to download topic
-- Background task handles MQTT events and routes data
+- Disguises traffic as Modbus/TCP or OPC-UA telemetry
+- Integrated via `mqtt_parasite.rs` for steganographic concealment
 
 ### Task 5: TLS Camouflage (`tls_camouflage.rs`)
 
@@ -187,14 +191,15 @@ src/transport/
 
 ## Test Coverage
 
-All 26 Flow-J related tests pass:
+All 32 Flow-J related tests pass:
 
 | Module | Tests |
 |--------|-------|
 | `flow_j.rs` | 4 tests (header, magic, config) |
 | `flow_j_reality.rs` | 5 tests (discrimination, auth) |
 | `flow_j_cdn.rs` | 2 tests (upgrade, xhttp) |
-| `flow_j_mqtt.rs` | 4 tests (broker, framing, IoT) |
+| `flow_j_mqtt.rs` | 6 tests (broker, framing, IoT, Parasite) |
+| `flow_j_brutal.rs` | 4 tests (pacing, throughput, loss) |
 | `flow_j_fec.rs` | 4 tests (encode, decode, serialization) |
 | `tls_camouflage.rs` | 7 tests (padding, grease, fingerprint) |
 
@@ -214,7 +219,7 @@ nix = { version = "0.29", features = ["fs"] }
 ## Future Enhancements
 
 1. **Full AsyncRead/AsyncWrite for MqttStream**: Currently falls back to TCP
-2. **HTTP/2 for xhttp**: Using h2 crate for multiplexing
+2. **Post-Quantum Cryptography (PQC)**: ML-KEM integration for handshakes
 3. **Session persistence**: Redis-backed session storage
 4. **Dynamic FEC ratio**: Adjust based on measured packet loss
 5. **BoringSSL integration**: For even more accurate Chrome fingerprints

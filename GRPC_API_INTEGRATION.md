@@ -2,7 +2,7 @@
 
 ## Overview
 
-Successfully integrated Xray-compatible gRPC API into `rustray` for compatibility with `rr-ui` panel.
+Successfully integrated RustRay-native gRPC API into `rustray` for compatibility with `rr-ui` panel.
 
 ## Implementation Details
 
@@ -13,7 +13,7 @@ Created the following `.proto` files in `rustray/proto/`:
 - **`common.proto`**: Network type definitions (TCP, UDP, UNIX)
 - **`common_serial.proto`**: TypedMessage for serialized proto messages
 - **`common_protocol.proto`**: User message definition
-- **`xray.proto`**: Core Xray configuration (InboundHandlerConfig, OutboundHandlerConfig)
+- **`rustray.proto`**: Core RustRay configuration (InboundHandlerConfig, OutboundHandlerConfig)
 - **`stats.proto`**: StatsService with methods for querying traffic statistics
 - **`proxyman.proto`**: HandlerService for dynamic inbound/outbound management
 
@@ -25,7 +25,7 @@ Updated `build.rs` to compile all proto files using `tonic-build`:
 tonic_build::configure()
     .build_server(true)
     .build_client(false)
-    .compile_protos(&xray_protos, &["proto"])?;
+    .compile_protos(&rustray_protos, &["proto"])?;
 ```
 
 ### 3. gRPC Service Implementations
@@ -36,9 +36,13 @@ Implements dynamic inbound/outbound management:
 
 - **`add_inbound`**: Converts proto InboundHandlerConfig to internal Inbound struct, sends ConfigEvent
 - **`remove_inbound`**: Removes inbound by tag, sends ConfigEvent
+- **`alter_inbound`**: Dynamically modifies inbound users (AddUser, RemoveUser) for VLESS/VMess/Trojan
 - **`list_inbounds`**: Returns list of configured inbounds
+- **`get_inbound_users`**: Enumerates users for a specific inbound with email filtering
+- **`get_inbound_users_count`**: Returns the count of users for a specific inbound
 - **`add_outbound`**: Adds new outbound configuration
 - **`remove_outbound`**: Removes outbound by tag
+- **`alter_outbound`**: Dynamically updates outbound settings
 - **`list_outbounds`**: Returns list of configured outbounds
 
 #### StatsService (`src/api/stats.rs`)
@@ -93,8 +97,8 @@ Add API section to config.json:
 
 The server exposes two services:
 
-- `xray.app.proxyman.command.HandlerService` - Inbound/outbound management
-- `xray.app.stats.command.StatsService` - Traffic statistics
+- `rustray.app.proxyman.command.HandlerService` - Inbound/outbound management
+- `rustray.app.stats.command.StatsService` - Traffic statistics
 
 ### Testing with grpcurl
 
@@ -104,16 +108,43 @@ grpcurl -plaintext localhost:10085 list
 
 # Query stats
 grpcurl -plaintext -d '{"pattern": ".*"}' localhost:10085 \
-  xray.app.stats.command.StatsService/QueryStats
+  rustray.app.stats.command.StatsService/QueryStats
 
 # List inbounds
 grpcurl -plaintext -d '{}' localhost:10085 \
-  xray.app.proxyman.command.HandlerService/ListInbounds
+  rustray.app.proxyman.command.HandlerService/ListInbounds
+```
+
+### Developer Code Examples (Go/Python)
+
+For developers building panels or automation tools:
+
+#### Python (using `grpcio`)
+```python
+import grpc
+import stats_pb2_grpc as stats_rpc
+import stats_pb2 as stats_msg
+
+with grpc.insecure_channel('localhost:10085') as channel:
+    stub = stats_rpc.StatsServiceStub(channel)
+    response = stub.QueryStats(stats_msg.QueryStatsRequest(pattern=".*", reset=False))
+    for stat in response.stat:
+        print(f"{stat.name}: {stat.value}")
+```
+
+#### Go (using `tonic` generated clients)
+```go
+conn, _ := grpc.Dial("localhost:10085", grpc.WithInsecure())
+client := proxyman.NewHandlerServiceClient(conn)
+resp, _ := client.ListInbounds(context.Background(), &proxyman.ListInboundsRequest{})
+for _, inbound := range resp.Inbound {
+    fmt.Printf("Active Inbound: %s\n", inbound.Tag)
+}
 ```
 
 ## Compatibility Notes
 
-1. **Proto-to-Internal Conversion**: The `proto_to_inbound` and `proto_to_outbound` functions handle conversion between Xray protobuf format and rustray's internal config structs.
+1. **Proto-to-Internal Conversion**: The `proto_to_inbound` and `proto_to_outbound` functions handle conversion between RustRay protobuf format and rustray's internal config structs.
 
 2. **ConfigEvent Broadcasting**: Changes made via gRPC API are broadcast to StatsManager via the `config_event_tx` channel for potential hot-reload support.
 
@@ -123,10 +154,9 @@ grpcurl -plaintext -d '{}' localhost:10085 \
 
 ## Future Enhancements
 
-1. **AlterInbound/AlterOutbound**: Currently returns "unimplemented" - needs user modification logic
-2. **GetInboundUsers**: Needs user enumeration from inbound settings
-3. **IP Tracking**: `get_stats_online_ip_list` needs connection tracking implementation
-4. **Hot Reload**: ConfigEvent handlers need to trigger actual inbound/outbound reconfiguration
+1. **IP Tracking**: `get_stats_online_ip_list` needs connection tracking implementation
+2. **Hot Reload**: ConfigEvent handlers need to trigger actual inbound/outbound reconfiguration
+3. **PQC Handshake**: Support for post-quantum key exchange in gRPC signaling
 
 ## Files Modified/Created
 
@@ -135,7 +165,7 @@ grpcurl -plaintext -d '{}' localhost:10085 \
 - `proto/common.proto`
 - `proto/common_serial.proto`
 - `proto/common_protocol.proto`
-- `proto/xray.proto`
+- `proto/rustray.proto`
 - `proto/stats.proto`
 - `proto/proxyman.proto`
 - `src/api/handler.rs`
@@ -153,4 +183,4 @@ grpcurl -plaintext -d '{}' localhost:10085 \
 
 ✅ Successfully compiles with 56 warnings (mostly unused imports in Flow-J modules)
 ✅ gRPC services properly registered and exposed
-✅ Compatible with Xray protocol buffer definitions
+✅ Compatible with RustRay protocol buffer definitions

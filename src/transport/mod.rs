@@ -10,8 +10,13 @@ use tokio::net::TcpStream;
 // use tracing::debug;
 
 // --- Modules ---
+pub mod brutal_cc;
 pub mod db_mimic;
+pub mod desync;
+pub mod dns_codec;
+pub mod dns_tunnel;
 pub mod ech;
+pub mod flow_j_brutal;
 pub mod flow_j_cdn;
 pub mod flow_j_fec;
 pub mod flow_j_mqtt;
@@ -21,6 +26,7 @@ pub mod flow_j_reality;
 pub mod grpc; // Added gRPC module
 pub mod mkcp;
 pub mod mqtt;
+pub mod mqtt_parasite;
 pub mod mux;
 pub mod paqet;
 pub mod pqc;
@@ -28,6 +34,8 @@ pub mod prefix_stream;
 #[cfg(feature = "quic")]
 pub mod quic;
 pub mod reality;
+pub mod s3_bridge;
+pub mod s3_codec;
 pub mod slipstream;
 pub mod speed_tester;
 pub mod splice;
@@ -37,8 +45,11 @@ pub mod tls;
 pub mod tls_camouflage;
 pub mod tls_fragment;
 pub mod tproxy;
+pub mod udp_fallback;
 pub mod utls;
 pub mod websocket;
+pub mod jitter;
+pub mod ghost_bucket;
 
 /// A trait that combines AsyncRead, AsyncWrite, Unpin, and Send.
 pub trait AsyncStream: AsyncRead + AsyncWrite + Unpin + Send {
@@ -390,3 +401,4 @@ where
         Err(e) => Err(anyhow::anyhow!("Copy bidirectional error: {}", e)),
     }
 }
+pub mod beacon_scanner;

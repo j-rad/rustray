@@ -55,13 +55,11 @@ impl FakeDns {
         let fakedns = Self { inner };
 
         // Load persisted state if available
-        if let Some(path) = &config.persist_path {
-            if Path::new(path).exists() {
-                if let Err(e) = fakedns.load_state(path) {
+        if let Some(path) = &config.persist_path
+            && Path::new(path).exists()
+                && let Err(e) = fakedns.load_state(path) {
                     warn!("FakeDNS: Failed to load state from {}: {}", path, e);
                 }
-            }
-        }
 
         Ok(fakedns)
     }

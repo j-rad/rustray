@@ -8,7 +8,6 @@
 //! Run with: cargo bench --bench ffi_overhead
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use std::hint::black_box as bb;
 
 /// Benchmark raw Vision flow processing
 fn bench_vision_raw(c: &mut Criterion) {
@@ -294,10 +293,10 @@ fn bench_fragment_config_parse(c: &mut Criterion) {
 
 /// Compare FFI overhead vs raw operation
 fn bench_ffi_overhead_comparison(c: &mut Criterion) {
-    use rustray::protocols::flow_trait::Flow;
+    
     use rustray::protocols::vless_vision::VisionFlow;
 
-    let mock_data: Vec<u8> = vec![0x16, 0x03, 0x03, 0x00, 0x20]; // TLS header
+    let _mock_data: Vec<u8> = vec![0x16, 0x03, 0x03, 0x00, 0x20]; // TLS header
 
     let mut group = c.benchmark_group("ffi_overhead");
 

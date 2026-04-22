@@ -20,6 +20,7 @@
 //! ```
 
 use crate::app::dns::DnsServer;
+use crate::app::stats::StatsManager;
 use crate::config::{LevelPolicy, StreamSettings, TlsSettings};
 use crate::error::Result;
 use crate::outbounds::Outbound;
@@ -71,7 +72,8 @@ pub struct TrojanInbound;
 impl TrojanInbound {
     pub async fn handle_stream(
         mut stream: BoxedStream,
-        password: &str,
+        settings: Arc<crate::config::TrojanSettings>,
+        state: Arc<StatsManager>,
         router: Arc<Router>,
         fallback_addr: Option<SocketAddr>,
         source: String,
@@ -88,16 +90,31 @@ impl TrojanInbound {
                     return Self::fallback(stream, Some(auth_buf.to_vec()), fallback_addr).await;
                 }
 
-                // Verify Hash
-                let expected_hash = hex::encode(Sha224::digest(password.as_bytes()));
+                // Verify Hash against all clients
                 let received_hash = String::from_utf8_lossy(&auth_buf[0..56]);
+                let mut authenticated_user = None;
 
-                if !received_hash.eq_ignore_ascii_case(&expected_hash) {
-                    warn!("Trojan: Invalid password hash: {}", received_hash);
-                    return Self::fallback(stream, Some(auth_buf.to_vec()), fallback_addr).await;
+                for client in &settings.clients {
+                    let expected_hash = hex::encode(Sha224::digest(client.password.as_bytes()));
+                    if received_hash.eq_ignore_ascii_case(&expected_hash) {
+                        authenticated_user = Some(client);
+                        break;
+                    }
                 }
 
-                info!("Trojan: Authenticated");
+                match authenticated_user {
+                    Some(user) => {
+                        info!("Trojan: Authenticated as {}", user.email.as_deref().unwrap_or("unknown"));
+                        // Record online IP
+                        if let Some(ref email) = user.email {
+                            state.record_online_ip(email, source.clone());
+                        }
+                    }
+                    None => {
+                        warn!("Trojan: Invalid password hash: {}", received_hash);
+                        return Self::fallback(stream, Some(auth_buf.to_vec()), fallback_addr).await;
+                    }
+                }
             }
             Err(_) => {
                 // Read failed (EOF or error), try fallback with whatever we got?
@@ -141,7 +158,7 @@ impl TrojanInbound {
         // Read trailing CRLF
         let mut crlf = [0u8; 2];
         stream.read_exact(&mut crlf).await?;
-        if &crlf != CRLF {
+        if crlf != CRLF {
             return Err(anyhow::anyhow!("Invalid Request CRLF"));
         }
 
@@ -405,11 +422,10 @@ async fn handle_udp_relay(
                 match result {
                     Ok((addr_str, port, payload)) => {
                         let target_addr = format!("{}:{}", addr_str, port);
-                        if let Ok(sock_addr) = target_addr.parse() {
-                            if to_udp_tx.send((payload, sock_addr)).await.is_err() {
+                        if let Ok(sock_addr) = target_addr.parse()
+                            && to_udp_tx.send((payload, sock_addr)).await.is_err() {
                                 break;
                             }
-                        }
                     }
                     Err(_) => break,
                 }

@@ -5,7 +5,6 @@ use serde::Deserialize;
 use url::Url;
 
 // Zstd for high density link compression
-use std::io::Write;
 
 /// Parse a share link (vmess, vless, trojan, ss, rr) into a ServerConfig
 pub fn parse_share_link(link: &str) -> Result<ServerConfig> {
@@ -49,6 +48,7 @@ pub fn parse_high_density_link(link: &str) -> Result<ServerConfig> {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct VmessJson {
     v: String,
     ps: String,

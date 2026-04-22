@@ -1,49 +1,114 @@
 {
-    "log": {
-        "loglevel": "warning"
-    },
-    "inbounds": [
-        {
-            "port": 1080,
-            "protocol": "socks",
-            "settings": {
-                "auth": "noauth",
-                "udp": true
-            },
-            "sniffing": {
-                "enabled": true,
-                "destOverride": [
-                    "http",
-                    "tls"
-                ]
-            }
-        },
-        {
-            "port": 8080,
-            "protocol": "http",
-            "settings": {}
-        }
+  "log": {
+    "access": "/var/log/rustray/access.log",
+    "error": "/var/log/rustray/error.log",
+    "loglevel": "warning",
+    "dnsLog": true
+  },
+  "api": {
+    "tag": "api",
+    "listen": "127.0.0.1",
+    "port": 10085,
+    "services": [
+      "HandlerService",
+      "StatsService",
+      "LoggerService"
+    ]
+  },
+  "dns": {
+    "servers": [
+      "https://8.8.8.8/dns-query",
+      "quic://dns.google",
+      "8.8.4.4",
+      "localhost"
     ],
-    "outbounds": [
-        {
-            "protocol": "freedom",
-            "settings": {}
-        },
-        {
-            "protocol": "blackhole",
-            "settings": {},
-            "tag": "blocked"
-        }
-    ],
-    "routing": {
-        "rules": [
-            {
-                "type": "field",
-                "ip": [
-                    "geoip:private"
-                ],
-                "outboundTag": "blocked"
-            }
-        ]
+    "autoDetectSystemDns": true,
+    "fakedns": {
+      "ipPool": "198.18.0.0/16",
+      "poolSize": 65535
     }
+  },
+  "inbounds": [
+    {
+      "tag": "socks-in",
+      "port": 1080,
+      "protocol": "socks",
+      "settings": {
+        "auth": "noauth",
+        "udp": true
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"],
+        "metadataOnly": false
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "proxy-flow-j",
+      "protocol": "flow-j",
+      "settings": {
+        "address": "your-server-ip",
+        "port": 443,
+        "uuid": "e8c89c74-2794-4d87-955a-e7c62d001234",
+        "fec": {
+          "enabled": true,
+          "dataShards": 10,
+          "parityShards": 3
+        },
+        "multiport": {
+          "enabled": true,
+          "range": "10000-20000"
+        }
+      },
+      "streamSettings": {
+        "network": "quic",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "fingerprint": "chrome",
+          "serverName": "www.google.com",
+          "publicKey": "base64-encoded-public-key",
+          "shortId": "deadbeef"
+        }
+      }
+    },
+    {
+      "protocol": "freedom",
+      "tag": "direct",
+      "settings": {}
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": ["api"],
+        "outboundTag": "api"
+      },
+      {
+        "type": "field",
+        "outboundTag": "direct",
+        "domain": ["geosite:cn", "geosite:private"]
+      }
+    ]
+  },
+  "isp": {
+    "activePreset": "mci",
+    "presets": [
+      {
+        "name": "mci",
+        "mtu": 1380,
+        "flowJInitialDelayMs": 50,
+        "edition": "2024"
+      },
+      {
+        "name": "mtn",
+        "mtu": 1420,
+        "edition": "2024"
+      }
+    ]
+  }
 }

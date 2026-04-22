@@ -1,20 +1,17 @@
-use rustray::scanner::dns::{DnsScanner, ResolverType};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::sync::Arc;
+use std::net::IpAddr;
 use tokio::net::UdpSocket;
-use tokio::time::Duration;
 
 #[tokio::test]
 async fn test_scanner_poisoning_detection() {
     // 1. Setup Mock DNS Server (Poisoned)
-    let poisoned_ip: IpAddr = "127.0.0.1".parse().unwrap();
+    let _poisoned_ip: IpAddr = "127.0.0.1".parse().unwrap();
     let poisoned_socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
-    let poisoned_port = poisoned_socket.local_addr().unwrap().port();
+    let _poisoned_port = poisoned_socket.local_addr().unwrap().port();
 
     tokio::spawn(async move {
         let mut buf = [0u8; 512];
         loop {
-            if let Ok((len, src)) = poisoned_socket.recv_from(&mut buf).await {
+            if let Ok((_len, src)) = poisoned_socket.recv_from(&mut buf).await {
                 // Respond with poisoned IP: 10.10.34.34
                 // Build a simple DNS response
                 // ID matches request
@@ -57,12 +54,12 @@ async fn test_scanner_poisoning_detection() {
 
     // 2. Setup Mock DNS Server (Clean)
     let clean_socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
-    let clean_port = clean_socket.local_addr().unwrap().port();
+    let _clean_port = clean_socket.local_addr().unwrap().port();
 
     tokio::spawn(async move {
         let mut buf = [0u8; 512];
         loop {
-            if let Ok((len, src)) = clean_socket.recv_from(&mut buf).await {
+            if let Ok((_len, src)) = clean_socket.recv_from(&mut buf).await {
                 // Respond with valid IP: 8.8.8.8
                 let id = &buf[0..2];
                 let mut response = Vec::new();
@@ -121,7 +118,7 @@ fn test_poisoning_logic() {
     // Re-implement the check logic locally to verify the concept,
     // since we can't easily invoke the private function in integration test without visibility change.
 
-    let poisoned_ips = vec!["10.10.34.34", "10.10.34.35"];
+    let poisoned_ips = ["10.10.34.34", "10.10.34.35"];
 
     // Mock Response with 10.10.34.34
     let mut packet = vec![0; 12];

@@ -135,7 +135,7 @@ async fn splice_loop(
                     std::ptr::null_mut(),
                     w_fd,
                     std::ptr::null_mut(),
-                    (spliced_to_pipe - written_from_pipe) as usize,
+                    spliced_to_pipe - written_from_pipe ,
                     libc::SPLICE_F_MOVE | libc::SPLICE_F_NONBLOCK,
                 )
             };

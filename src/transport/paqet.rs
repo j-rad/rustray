@@ -210,7 +210,7 @@ impl KcpSession {
         }
 
         let slap = (self.current as i32) - (self.ts_flush as i32);
-        if slap >= 10000 || slap < -10000 {
+        if !(-10000..10000).contains(&slap) {
             self.ts_flush = self.current;
         }
 
@@ -418,8 +418,8 @@ impl KcpSession {
             return -1;
         }
 
-        if self.stream {
-            if let Some(last) = self.snd_queue.back_mut() {
+        if self.stream
+            && let Some(last) = self.snd_queue.back_mut() {
                 let old_len = last.data.len();
                 if old_len < self.mss {
                     let capacity = self.mss - old_len;
@@ -433,7 +433,6 @@ impl KcpSession {
                     offset += extend;
                 }
             }
-        }
 
         if offset >= len {
             return 0;
@@ -442,7 +441,7 @@ impl KcpSession {
         let count = if len - offset <= self.mss {
             1
         } else {
-            (len - offset + self.mss - 1) / self.mss
+            (len - offset).div_ceil(self.mss)
         };
         if count >= 255 {
             return -2;
@@ -483,14 +482,12 @@ impl KcpSession {
             if self.probe == 0 {
                 self.probe = KCP_ASK_SEND;
                 self.ts_probe = self.current + self.rx_rto;
-            } else {
-                if (self.current as i32) - (self.ts_probe as i32) >= 0 {
-                    if self.rx_rto < KCP_RTO_MAX {
-                        self.rx_rto = std::cmp::min(self.rx_rto * 2, KCP_RTO_MAX);
-                    }
-                    self.probe |= KCP_ASK_SEND;
-                    self.ts_probe = self.current + self.rx_rto;
+            } else if (self.current as i32) - (self.ts_probe as i32) >= 0 {
+                if self.rx_rto < KCP_RTO_MAX {
+                    self.rx_rto = std::cmp::min(self.rx_rto * 2, KCP_RTO_MAX);
                 }
+                self.probe |= KCP_ASK_SEND;
+                self.ts_probe = self.current + self.rx_rto;
             }
         } else {
             self.ts_probe = 0;
@@ -761,7 +758,7 @@ impl AsyncWrite for PaqetStream {
         let mut session = self.session.lock().unwrap();
         let ret = session.send(buf);
         if ret < 0 {
-            return Poll::Ready(Err(io::Error::new(io::ErrorKind::Other, "KCP send error")));
+            return Poll::Ready(Err(io::Error::other("KCP send error")));
         }
         session.waker_write = Some(cx.waker().clone());
         Poll::Ready(Ok(buf.len()))

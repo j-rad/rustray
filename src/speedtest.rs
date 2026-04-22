@@ -82,7 +82,7 @@ impl SpeedTestEngine {
         let variance = samples
             .iter()
             .map(|value| {
-                let diff = avg - (*value as f64);
+                let diff = avg - *value;
                 diff * diff
             })
             .sum::<f64>()
@@ -103,7 +103,7 @@ impl SpeedTestEngine {
         // Since we are testing Proxy connectivity, we need a target.
         // Usually speedtests connect to the proxy, then request a URL through it.
 
-        let target_url = "http://speedtest.google.com/Generate_204"; // Lightweight target
+        let _target_url = "http://speedtest.google.com/Generate_204"; // Lightweight target
         // For actual throughput, we might need a larger payload.
         // Let's assume we request a small dummy file from a CDN if possible,
         // or just measure read speed of "garbage" if talking to a specialized server.
@@ -111,7 +111,7 @@ impl SpeedTestEngine {
         // LIMITATION: Without a known large file URL, strictly measuring throughput is hard
         // unless we use the proxy to fetch something.
         // Let's assume we fetch a 1MB test file from a common CDN.
-        let test_file_url = "http://speed.cloudflare.com/__down?bytes=1000000";
+        let _test_file_url = "http://speed.cloudflare.com/__down?bytes=1000000";
 
         let start = Instant::now();
 
@@ -122,13 +122,11 @@ impl SpeedTestEngine {
         let mut stream =
             transport::connect(settings, self.dns.clone(), &server.address, server.port).await?;
 
-        let request = format!(
-            "GET /__down?bytes=1000000 HTTP/1.1\r\n\
+        let request = "GET /__down?bytes=1000000 HTTP/1.1\r\n\
              Host: speed.cloudflare.com\r\n\
              User-Agent: RustRay-SpeedTest\r\n\
              Connection: close\r\n\
-             \r\n"
-        );
+             \r\n".to_string();
 
         stream.write_all(request.as_bytes()).await?;
         stream.flush().await?;

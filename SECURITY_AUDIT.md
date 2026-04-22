@@ -22,11 +22,13 @@ We have implemented a production-grade secure storage system using **SurrealDB**
 To combat DNS poisoning (common in IR networks) and prevent leaks to local ISPs:
 
 - **Port 53 Interception:** The router automatically detects outbound UDP traffic on port 53.
-- **Forced Resolution:** All intercepted queries are **redirected** to a trusted remote resolver (default: `8.8.8.8` via tunnel).
-- **Mechanism:** Packet rewrite in `src/router.rs`. Destination is overridden before the packet enters the outbound handler system.
+- **Forced Resolution:** All intercepted queries are **redirected** to a trusted remote resolver.
+- **DNS-over-QUIC (DoQ) Signaling:** Upstream queries are sent via encrypted QUIC streams to prevent interception and tampering.
+- **Secure mDNS local discovery:** Local peer announcements are encrypted with AES-256-GCM to prevent mapping of the proxy network by local observers.
+- **Mechanism:** Packet rewrite in `src/router.rs` and transport wrapping in `src/transport/dns_tunnel.rs`.
 - **Result:** No DNS query leaves the device in cleartext to the local network's default gateway.
 
-**Status:** ✅ **Implemented**
+**Status:** ✅ **Implemented & Hardened**
 
 ## 3. Hard Kill Switch
 

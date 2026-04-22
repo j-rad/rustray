@@ -9,7 +9,6 @@
 //! - Log streaming
 
 use std::sync::Arc;
-use std::time::Duration;
 
 /// Test server health endpoint (no auth required)
 #[tokio::test]
@@ -29,7 +28,7 @@ async fn test_health_endpoint() {
 /// Test JWT authentication flow
 #[tokio::test]
 async fn test_jwt_authentication_flow() {
-    use rustray::api::auth_middleware::{AuthConfig, SessionStore};
+    use rustray::api::auth_middleware::SessionStore;
 
     let psk = "test_secret_key_for_development_32!";
     let session_store = Arc::new(SessionStore::new(psk));

@@ -49,6 +49,12 @@ pub struct VisionFlow {
     state: VisionState,
 }
 
+impl Default for VisionFlow {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VisionFlow {
     pub fn new() -> Self {
         Self {
@@ -123,14 +129,13 @@ impl VisionFlow {
         match self.state {
             VisionState::Initial => {
                 // Check for ClientHello
-                if let Some((content_type, _)) = Self::parse_tls_header(src) {
-                    if content_type == TLS_HANDSHAKE {
+                if let Some((content_type, _)) = Self::parse_tls_header(src)
+                    && content_type == TLS_HANDSHAKE {
                         debug!("Vision: ClientHello detected. Activating padding.");
                         self.state = VisionState::Handshake { records_seen: 1 };
                         self.add_vision_padding(src, dst);
                         return;
                     }
-                }
                 // Passthrough
                 dst.extend_from_slice(src);
             }

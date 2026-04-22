@@ -3,20 +3,19 @@
 //!
 //! Validates headless server lifecycle and atomic config updates.
 
-use tokio::time::Duration;
 
 #[actix_rt::test]
 async fn test_headless_server_lifecycle() {
     // Note: This test validates the structure and API contracts.
     // Full integration requires the server to be running.
 
-    let psk = "test-psk-12345";
+    let _psk = "test-psk-12345";
     let base_url = "http://127.0.0.1:10099";
 
     // The server would be started externally for this test
     // For CI, we just verify the test structure is correct
 
-    let client = reqwest::Client::new();
+    let _client = reqwest::Client::new();
 
     // Test health endpoint contract
     let health_endpoint = format!("{}/health", base_url);

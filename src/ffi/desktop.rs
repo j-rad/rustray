@@ -53,102 +53,99 @@ fn handle_desktop_events(
 ) {
     runtime.spawn(async move {
         while let Some(event) = event_rx.recv().await {
-            match event {
-                StreamEvent::TcpConnect {
+            if let StreamEvent::TcpConnect {
                     key,
                     stream_tx,
                     mut stream_rx,
-                } => {
-                    let target_addr = key.dst_addr;
-                    let target_port = key.dst_port;
-                    let socks_target = socks_addr.clone();
+                } = event {
+                let target_addr = key.dst_addr;
+                let target_port = key.dst_port;
+                let socks_target = socks_addr.clone();
 
-                    tokio::spawn(async move {
-                        match TcpStream::connect(&socks_target).await {
-                            Ok(mut socks_stream) => {
-                                use tokio::io::{AsyncReadExt, AsyncWriteExt};
-                                // 1. Auth neg
-                                if socks_stream.write_all(&[0x05, 0x01, 0x00]).await.is_err() {
-                                    return;
-                                }
-                                let mut buf = [0u8; 2];
-                                if socks_stream.read_exact(&mut buf).await.is_err()
-                                    || buf[0] != 0x05
-                                    || buf[1] != 0x00
-                                {
-                                    return;
-                                }
-
-                                // 2. Request
-                                let mut req = vec![0x05, 0x01, 0x00];
-                                match target_addr {
-                                    IpAddr::V4(v4) => {
-                                        req.push(0x01);
-                                        req.extend_from_slice(&v4.octets());
-                                    }
-                                    IpAddr::V6(v6) => {
-                                        req.push(0x04);
-                                        req.extend_from_slice(&v6.octets());
-                                    }
-                                }
-                                req.extend_from_slice(&target_port.to_be_bytes());
-                                if socks_stream.write_all(&req).await.is_err() {
-                                    return;
-                                }
-
-                                // 3. Response
-                                let mut resp_head = [0u8; 4];
-                                if socks_stream.read_exact(&mut resp_head).await.is_err()
-                                    || resp_head[1] != 0x00
-                                {
-                                    return;
-                                }
-                                let addr_len = match resp_head[3] {
-                                    1 => 4,
-                                    4 => 16,
-                                    3 => {
-                                        let mut len = [0u8];
-                                        if socks_stream.read_exact(&mut len).await.is_err() {
-                                            return;
-                                        }
-                                        len[0] as usize
-                                    }
-                                    _ => 0,
-                                };
-                                let mut _addr = vec![0u8; addr_len + 2];
-                                let _ = socks_stream.read_exact(&mut _addr).await;
-
-                                // 4. Pipe
-                                let (mut ro, mut wo) = socks_stream.into_split();
-                                let t2s = tokio::spawn(async move {
-                                    let mut buf = vec![0u8; 65536];
-                                    loop {
-                                        match ro.read(&mut buf).await {
-                                            Ok(0) => break,
-                                            Ok(n) => {
-                                                if stream_tx.send(buf[..n].to_vec()).await.is_err()
-                                                {
-                                                    break;
-                                                }
-                                            }
-                                            Err(_) => break,
-                                        }
-                                    }
-                                });
-                                let s2t = tokio::spawn(async move {
-                                    while let Some(data) = stream_rx.recv().await {
-                                        if wo.write_all(&data).await.is_err() {
-                                            break;
-                                        }
-                                    }
-                                });
-                                let _ = tokio::join!(t2s, s2t);
+                tokio::spawn(async move {
+                    match TcpStream::connect(&socks_target).await {
+                        Ok(mut socks_stream) => {
+                            use tokio::io::{AsyncReadExt, AsyncWriteExt};
+                            // 1. Auth neg
+                            if socks_stream.write_all(&[0x05, 0x01, 0x00]).await.is_err() {
+                                return;
                             }
-                            Err(e) => error!("SOCKS connect error: {}", e),
+                            let mut buf = [0u8; 2];
+                            if socks_stream.read_exact(&mut buf).await.is_err()
+                                || buf[0] != 0x05
+                                || buf[1] != 0x00
+                            {
+                                return;
+                            }
+
+                            // 2. Request
+                            let mut req = vec![0x05, 0x01, 0x00];
+                            match target_addr {
+                                IpAddr::V4(v4) => {
+                                    req.push(0x01);
+                                    req.extend_from_slice(&v4.octets());
+                                }
+                                IpAddr::V6(v6) => {
+                                    req.push(0x04);
+                                    req.extend_from_slice(&v6.octets());
+                                }
+                            }
+                            req.extend_from_slice(&target_port.to_be_bytes());
+                            if socks_stream.write_all(&req).await.is_err() {
+                                return;
+                            }
+
+                            // 3. Response
+                            let mut resp_head = [0u8; 4];
+                            if socks_stream.read_exact(&mut resp_head).await.is_err()
+                                || resp_head[1] != 0x00
+                            {
+                                return;
+                            }
+                            let addr_len = match resp_head[3] {
+                                1 => 4,
+                                4 => 16,
+                                3 => {
+                                    let mut len = [0u8];
+                                    if socks_stream.read_exact(&mut len).await.is_err() {
+                                        return;
+                                    }
+                                    len[0] as usize
+                                }
+                                _ => 0,
+                            };
+                            let mut _addr = vec![0u8; addr_len + 2];
+                            let _ = socks_stream.read_exact(&mut _addr).await;
+
+                            // 4. Pipe
+                            let (mut ro, mut wo) = socks_stream.into_split();
+                            let t2s = tokio::spawn(async move {
+                                let mut buf = vec![0u8; 65536];
+                                loop {
+                                    match ro.read(&mut buf).await {
+                                        Ok(0) => break,
+                                        Ok(n) => {
+                                            if stream_tx.send(buf[..n].to_vec()).await.is_err()
+                                            {
+                                                break;
+                                            }
+                                        }
+                                        Err(_) => break,
+                                    }
+                                }
+                            });
+                            let s2t = tokio::spawn(async move {
+                                while let Some(data) = stream_rx.recv().await {
+                                    if wo.write_all(&data).await.is_err() {
+                                        break;
+                                    }
+                                }
+                            });
+                            let _ = tokio::join!(t2s, s2t);
                         }
-                    });
-                }
-                _ => {}
+                        Err(e) => error!("SOCKS connect error: {}", e),
+                    }
+                });
             }
         }
     });

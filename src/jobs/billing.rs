@@ -14,7 +14,7 @@ use dashmap::DashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::interval;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 /// Traffic counter entry for a user
 #[derive(Debug, Clone)]
@@ -213,8 +213,8 @@ impl BillingJob {
         }
 
         // Persist changes to database
-        if !changes.is_empty() {
-            if let Some(db) = &self.db {
+        if !changes.is_empty()
+            && let Some(db) = &self.db {
                 for (user_id, inbound_tag, enabled) in changes {
                     if let Err(e) = self
                         .persist_user_state(db, &user_id, &inbound_tag, enabled)
@@ -224,7 +224,6 @@ impl BillingJob {
                     }
                 }
             }
-        }
     }
 
     async fn persist_user_state(

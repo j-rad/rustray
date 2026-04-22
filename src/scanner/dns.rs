@@ -43,6 +43,12 @@ pub enum ResolverType {
     SlipstreamCapable,
 }
 
+impl Default for DnsScanner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DnsScanner {
     pub fn new() -> Self {
         Self {
@@ -265,11 +271,10 @@ fn verify_response_integrity(response: &[u8]) -> bool {
 
     // Simple poisoning check
     for poison in POISONED_IPS {
-        if let Ok(ip) = poison.parse::<std::net::Ipv4Addr>() {
-            if find_subsequence(response, &ip.octets()).is_some() {
+        if let Ok(ip) = poison.parse::<std::net::Ipv4Addr>()
+            && find_subsequence(response, &ip.octets()).is_some() {
                 return false;
             }
-        }
     }
     true
 }
