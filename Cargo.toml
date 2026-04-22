@@ -227,7 +227,3 @@ conf-files = ["/etc/rustray/config.json"]
 maintainer-scripts = "debian/"
 
 
-
-[lints]
-workspace = true
-
