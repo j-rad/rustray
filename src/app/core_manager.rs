@@ -17,7 +17,7 @@ pub enum CoreType {
 impl CoreType {
     pub fn repo(&self) -> &str {
         match self {
-            CoreType::RustRay => "FaezBarghasa/rustray",
+            CoreType::RustRay => "j-rad/rustray",
         }
     }
 

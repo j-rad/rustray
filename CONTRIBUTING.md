@@ -5,12 +5,12 @@ First off, thank you for considering contributing to RustRay! It's people like y
 ## How Can I Contribute?
 
 ### Reporting Bugs
-- Use the [Bug Report Template](https://github.com/FaezBarghasa/rustray/issues/new?template=bug_report.md).
+- Use the [Bug Report Template](https://github.com/j-rad/rustray/issues/new?template=bug_report.md).
 - Describe the exact steps to reproduce the issue.
 - Include your architecture and OS details.
 
 ### Suggesting Enhancements
-- Use the [Feature Request Template](https://github.com/FaezBarghasa/rustray/issues/new?template=feature_request.md).
+- Use the [Feature Request Template](https://github.com/j-rad/rustray/issues/new?template=feature_request.md).
 - Explain why this enhancement would be useful to most users.
 
 ### Pull Requests

@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/Rust-2024-orange.svg)](https://www.rust-lang.org/)
-[![Build Status](https://github.com/FaezBarghasa/rustray/actions/workflows/test.yml/badge.svg)](https://github.com/FaezBarghasa/rustray/actions)
+[![Build Status](https://github.com/j-rad/rustray/actions/workflows/test.yml/badge.svg)](https://github.com/j-rad/rustray/actions)
 [![Production Ready](https://img.shields.io/badge/Status-Production--Ready-success.svg)](IMPLEMENTATION_STATUS.md)
 
 **RustRay** is a next-generation, high-performance universal proxy core written entirely in memory-safe Rust. It functions as a **100% drop-in replacement** for legacy systems like `Xray-core`, merging standard JSON APIs with cutting-edge proprietary evasion techniques built natively into the runtime.
@@ -95,7 +95,7 @@ Detailed roadmap can be found in [FUTURE_IMPLEMENTATION_PLAN.md](FUTURE_IMPLEMEN
 We ❤️ open source! We are actively looking for contributors to help make RustRay the gold standard for privacy and performance.
 
 - Check out our [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
-- See "Good First Issues" on our [Issue Tracker](https://github.com/FaezBarghasa/rustray/issues).
+- See "Good First Issues" on our [Issue Tracker](https://github.com/j-rad/rustray/issues).
 - Help us improve our [Test Coverage](TESTING_GUIDE.md)!
 
 ## Security
@@ -104,7 +104,7 @@ Security is our top priority. Please review our [SECURITY.md](SECURITY.md) for v
 
 ## Community
 
-- **GitHub Discussions**: [Join the conversation](https://github.com/FaezBarghasa/rustray/discussions)
+- **GitHub Discussions**: [Join the conversation](https://github.com/j-rad/rustray/discussions)
 - **Telegram**: [@RustRayCommunity](https://t.me/RustRayCommunity) (Placeholder)
 - **Discord**: [Join our Server](https://discord.gg/rustray) (Placeholder)
 
