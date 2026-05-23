@@ -17,14 +17,16 @@
 use crate::config::{LevelPolicy, MuxConfig};
 use crate::error::Result;
 use crate::outbounds::Outbound;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
 use crate::router::Router;
-use crate::transport::BoxedStream;
-use crate::transport::mux::MuxPool;
+#[cfg(feature = "quic")]
+use crate::transport::quic;
 use async_trait::async_trait;
 use bytes::{Buf, BufMut, BytesMut};
+use hmac::{Hmac, Mac};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::io;
+use std::io::{self};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -190,6 +192,7 @@ pub struct FlowJConfig {
     /// Mux settings for connection multiplexing
     #[serde(default)]
     pub mux: Option<MuxConfig>,
+    pub pqc: Option<crate::config::PqcSettings>,
     /// FEC settings
     #[serde(default)]
     pub fec: FecSettings,
@@ -381,7 +384,7 @@ pub struct FlowJInbound;
 impl FlowJInbound {
     /// Handle incoming Flow-J connection
     pub async fn handle_stream(
-        mut stream: BoxedStream,
+        mut stream: BoxedTrinityTransport,
         settings: Arc<FlowJInboundSettings>,
         router: Arc<Router>,
         source: String,
@@ -429,7 +432,7 @@ impl FlowJInbound {
 
         // Handle remaining data in buffer
         let remaining = &header_buf[consumed..n];
-        let mut final_stream: BoxedStream = if !remaining.is_empty() {
+        let mut final_stream: BoxedTrinityTransport = if !remaining.is_empty() {
             Box::new(PrefixedStream::new(remaining.to_vec(), stream))
         } else {
             stream
@@ -473,7 +476,7 @@ impl FlowJInbound {
                 .peer_addr()
                 .map(|a| a.to_string())
                 .unwrap_or_else(|_| "unknown".to_string());
-            let boxed: BoxedStream = Box::new(socket);
+            let boxed: BoxedTrinityTransport = Box::new(socket);
             return Self::handle_stream(boxed, settings, router, source).await;
         }
 
@@ -519,7 +522,7 @@ pub struct FlowJOutbound {
     config: FlowJConfig,
     /// Mux connection pool for multiplexing
     #[allow(dead_code)]
-    mux_pool: Arc<MuxPool>,
+    mux_pool: Arc<crate::transport::mux::MuxPool>,
     /// Whether Mux is enabled
     #[allow(dead_code)]
     mux_enabled: bool,
@@ -530,7 +533,7 @@ impl FlowJOutbound {
         let mux_enabled = config.mux.as_ref().map(|m| m.enabled).unwrap_or(false);
         Self {
             config,
-            mux_pool: Arc::new(MuxPool::new()),
+            mux_pool: Arc::new(crate::transport::mux::MuxPool::new()),
             mux_enabled,
         }
     }
@@ -589,7 +592,7 @@ impl FlowJOutbound {
 
     /// Connect via Mode A (REALITY)
     /// Uses TLS 1.3 with Chrome-like fingerprint for stealth
-    async fn connect_reality(&self) -> Result<BoxedStream> {
+    async fn connect_reality(&self) -> Result<BoxedTrinityTransport> {
         let addr = format!("{}:{}", self.config.address, self.config.port);
         debug!("Flow-J: Connecting via REALITY to {}", addr);
 
@@ -613,7 +616,7 @@ impl FlowJOutbound {
     }
 
     /// Connect via Mode B (CDN - HttpUpgrade)
-    async fn connect_http_upgrade(&self) -> Result<BoxedStream> {
+    async fn connect_http_upgrade(&self) -> Result<BoxedTrinityTransport> {
         let settings = self
             .config
             .http_upgrade
@@ -661,7 +664,7 @@ impl FlowJOutbound {
 
     /// Connect via Mode B (CDN - xhttp/SplitHTTP)
     /// Uses dual HTTP streams for upload and download
-    async fn connect_xhttp(&self) -> Result<BoxedStream> {
+    async fn connect_xhttp(&self) -> Result<BoxedTrinityTransport> {
         let settings = self
             .config
             .xhttp
@@ -698,7 +701,7 @@ impl FlowJOutbound {
 
     /// Connect via Mode C (MQTT)
     /// Establishes MQTT connection and sets up topic-based tunneling
-    async fn connect_mqtt(&self) -> Result<BoxedStream> {
+    async fn connect_mqtt(&self) -> Result<BoxedTrinityTransport> {
         let settings = self
             .config
             .mqtt
@@ -713,9 +716,12 @@ impl FlowJOutbound {
             hasher.update(self.config.uuid.as_bytes());
             let session_key: [u8; 32] = hasher.finalize().into();
 
-            let tunnel =
-                crate::transport::flow_j_mqtt::StealthMqttTunnel::connect(settings, session_key)
-                    .await?;
+            let tunnel = crate::transport::flow_j_mqtt::StealthMqttTunnel::connect(
+                settings,
+                session_key,
+                self.config.pqc.as_ref(),
+            )
+            .await?;
 
             debug!(
                 "Flow-J: Stealth MQTT tunnel established, session: {}",
@@ -723,10 +729,14 @@ impl FlowJOutbound {
             );
 
             let mqtt_stream = crate::transport::flow_j_mqtt::StealthMqttStream::new(tunnel);
-            let stream: BoxedStream = Box::new(mqtt_stream);
+            let stream: BoxedTrinityTransport = Box::new(mqtt_stream);
             Ok(stream)
         } else {
-            let tunnel = crate::transport::flow_j_mqtt::MqttTunnel::connect(settings).await?;
+            let tunnel = crate::transport::flow_j_mqtt::MqttTunnel::connect(
+                settings,
+                self.config.pqc.as_ref(),
+            )
+            .await?;
 
             debug!(
                 "Flow-J: MQTT tunnel established, session: {}",
@@ -734,7 +744,7 @@ impl FlowJOutbound {
             );
 
             let mqtt_stream = crate::transport::flow_j_mqtt::MqttStream::new(tunnel);
-            let stream: BoxedStream = Box::new(mqtt_stream);
+            let stream: BoxedTrinityTransport = Box::new(mqtt_stream);
             Ok(stream)
         }
     }
@@ -744,7 +754,7 @@ impl FlowJOutbound {
 impl Outbound for FlowJOutbound {
     async fn handle(
         &self,
-        mut in_stream: BoxedStream,
+        mut in_stream: BoxedTrinityTransport,
         host: String,
         port: u16,
         _policy: Arc<LevelPolicy>,
@@ -757,7 +767,7 @@ impl Outbound for FlowJOutbound {
         Ok(())
     }
 
-    async fn dial(&self, host: String, port: u16) -> Result<BoxedStream> {
+    async fn dial(&self, host: String, port: u16) -> Result<BoxedTrinityTransport> {
         let mode = self.select_mode();
         debug!("Flow-J: Using mode {:?}", mode);
 
@@ -835,6 +845,26 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for PrefixedStream<S> {
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Pin::new(&mut self.inner).poll_shutdown(cx)
+    }
+}
+
+impl<S: TrinityTransport + Unpin + Send + 'static> TrinityTransport for PrefixedStream<S> {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        self.inner.switch_carrier(new_carrier)
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        self.inner.apply_fragmentation()
+    }
+
+    fn handover(self, new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Ok(Self {
+            prefix: self.prefix,
+            inner: self.inner.handover(new_tal)?,
+        })
     }
 }
 

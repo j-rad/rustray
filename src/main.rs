@@ -1,10 +1,10 @@
-use actix_web::{web, App, HttpServer};
+use actix_web::{App, HttpServer, web};
 use clap::Parser;
+use rustray::api::handlers::create_user;
 use rustray::app::state::GlobalState;
 use rustray::config;
 use rustray::db::DbManager;
 use rustray::error::Result;
-use rustray::api::handlers::create_user;
 use std::sync::Arc;
 use tokio::sync::{broadcast, watch};
 use tracing::{debug, error, info};
@@ -61,7 +61,10 @@ async fn main() -> Result<()> {
 
     // 2. Parse arguments and load initial config
     let args = Args::parse();
-    info!("Starting RustRay Unified Process v{}...", env!("CARGO_PKG_VERSION"));
+    info!(
+        "Starting RustRay Unified Process v{}...",
+        env!("CARGO_PKG_VERSION")
+    );
 
     let config = match config::load(&args.config) {
         Ok(cfg) => {
@@ -94,7 +97,7 @@ async fn main() -> Result<()> {
     let engine_config = config.clone();
     tokio::spawn(async move {
         info!("Proxy engine worker started with zero-copy watch channel.");
-        
+
         // Initial engine startup would go here
         // For this task, we simulate the engine listening for changes
         while config_rx.changed().await.is_ok() {
@@ -120,7 +123,7 @@ async fn main() -> Result<()> {
         App::new()
             .app_data(shared_state.clone())
             .service(create_user)
-            // Other existing routes could be added here
+        // Other existing routes could be added here
     })
     .bind(api_addr)?
     .run();
@@ -138,8 +141,8 @@ async fn main() -> Result<()> {
     // 11. Graceful Shutdown: Flush SurrealDB RocksDB/SurrealKV cache
     info!("Flushing database caches and terminating...");
     // SurrealDB handle drop usually handles this, but we ensure a clean exit
-    drop(db_manager); 
-    
+    drop(db_manager);
+
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     info!("RustRay shutdown complete.");
     Ok(())

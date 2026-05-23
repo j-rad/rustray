@@ -1,23 +1,33 @@
 // src/inbounds/mod.rs
 pub mod dokodemo;
 pub mod http;
+pub mod nginx_decoy;
 pub mod reverse_portal;
 pub mod socks;
-pub mod nginx_decoy;
 
 use crate::app::dns::DnsServer;
 use crate::app::reverse::ReverseManager;
 use crate::app::stats::{ConfigEvent, StatsManager};
-use crate::config::{Inbound, InboundSettings};
+use crate::config::{Inbound as InboundConfig, InboundSettings};
 use crate::error::Result;
+use async_trait::async_trait;
+
+#[async_trait]
+pub trait Inbound: Send + Sync {
+    async fn listen(&self) -> Result<()>;
+}
+
 #[cfg(feature = "quic")]
 use crate::protocols::{hysteria2, tuic};
 use crate::protocols::{trojan, vless};
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
 use crate::router::Router;
 #[cfg(feature = "quic")]
 use crate::transport::quic;
+use crate::transport::mitm::MitmManager;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tokio::sync::{mpsc, RwLock};
 use tokio::net::TcpListener;
 use tokio::task::AbortHandle;
 use tracing::{error, info, warn};
@@ -28,6 +38,7 @@ pub struct InboundManager {
     dns_server: Arc<DnsServer>,
     stats_manager: Arc<StatsManager>,
     reverse_manager: Arc<ReverseManager>,
+    mitm_manager: Arc<RwLock<Option<Arc<MitmManager>>>>,
 }
 
 impl InboundManager {
@@ -42,6 +53,7 @@ impl InboundManager {
             dns_server,
             stats_manager,
             reverse_manager,
+            mitm_manager: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -50,6 +62,39 @@ impl InboundManager {
         // Map of Tag -> AbortHandle to cancel listeners
         let mut running_tasks: HashMap<String, AbortHandle> = HashMap::new();
         let mut rx = stats_manager.config_event_tx.subscribe();
+        
+        // 0. Initialize MITM if needed
+        {
+            let config = stats_manager.config.load();
+            if let Some(inbounds) = &config.inbounds {
+                for ib in inbounds {
+                    if let Some(sniffing) = &ib.sniffing
+                        && let Some(mitm) = &sniffing.mitm
+                        && mitm.enabled
+                    {
+                        info!("InboundManager: Initializing MITM Manager for '{}'", ib.tag);
+                        let ca_cert = mitm.ca_cert.clone().unwrap_or_default();
+                        let ca_key = mitm.ca_key.clone().unwrap_or_default();
+                        
+                        if ca_cert.is_empty() || ca_key.is_empty() {
+                            warn!("InboundManager: MITM enabled but CA missing. Generating ephemeral CA.");
+                            let (cert, key) = MitmManager::generate_ca()?;
+                            let manager = MitmManager::new(&cert, &key)?;
+                            let mut lock = self.mitm_manager.write().await;
+                            *lock = Some(Arc::new(manager));
+                        } else {
+                            // Load from files
+                            let cert = std::fs::read_to_string(ca_cert)?;
+                            let key = std::fs::read_to_string(ca_key)?;
+                            let manager = MitmManager::new(&cert, &key)?;
+                            let mut lock = self.mitm_manager.write().await;
+                            *lock = Some(Arc::new(manager));
+                        }
+                        break; // One manager for now
+                    }
+                }
+            }
+        }
 
         // 1. Initial Startup
         let initial_inbounds = {
@@ -91,7 +136,7 @@ impl InboundManager {
 
     async fn start_inbound(
         &self,
-        inbound: &Inbound,
+        inbound: &InboundConfig,
         running_tasks: &mut HashMap<String, AbortHandle>,
     ) {
         // Clone context for the task
@@ -101,6 +146,7 @@ impl InboundManager {
         let dns = self.dns_server.clone();
         let inbound_clone = inbound.clone();
         let tag = inbound.tag.clone();
+        let mitm_manager = self.mitm_manager.clone();
 
         let tag_clone = tag.clone();
         let task = tokio::spawn(async move {
@@ -154,7 +200,14 @@ impl InboundManager {
                     futures::future::pending::<()>().await;
                 }
                 "tcp" | "ws" | "http" => {
-                    let listener = match TcpListener::bind(format!("{}:{}", listen, port)).await {
+                    let addr = format!("{}:{}", listen, port).parse().unwrap_or("0.0.0.0:0".parse().unwrap());
+                    let listener = if let Some(ref sockopt) = stream_settings.as_ref().and_then(|s| s.sockopt.clone()) {
+                        crate::transport::listen_tcp_with_sockopt(addr, &sockopt).await
+                    } else {
+                        TcpListener::bind(addr).await.map_err(|e| anyhow::anyhow!(e))
+                    };
+
+                    let listener = match listener {
                         Ok(l) => l,
                         Err(e) => {
                             error!("Failed to bind {}: {}", inbound_clone.tag, e);
@@ -173,12 +226,13 @@ impl InboundManager {
                             let ss = stream_settings.clone();
                             let tag = tag.clone(); // Clone for this iteration
                             let source = source.clone();
+                            let mitm = mitm_manager.clone();
 
                             tokio::spawn(async move {
                                 let default_ss = crate::config::StreamSettings::default();
                                 let ss_ref = ss.as_ref().unwrap_or(&default_ss);
-                                let stream = match crate::transport::wrap_inbound_stream(
-                                    Box::new(stream),
+                                let stream: BoxedTrinityTransport = match crate::transport::wrap_inbound_stream(
+                                    Box::new(stream) as BoxedTrinityTransport,
                                     ss_ref,
                                 )
                                 .await
@@ -191,14 +245,19 @@ impl InboundManager {
                                 let _ = if let Some(s_cfg) = set {
                                     match s_cfg {
                                         InboundSettings::Socks(cfg) => {
-                                            socks::listen_stream(r, d, s, stream, cfg, source).await
+                                            socks::listen_stream(r, d, s, stream, cfg, source, mitm).await
                                         }
                                         InboundSettings::Vless(cfg) => {
                                             vless::listen_stream(r, s, stream, cfg, source).await
                                         }
                                         InboundSettings::Trojan(cfg) => {
                                             trojan::TrojanInbound::handle_stream(
-                                                stream, Arc::new(cfg), s, r, None, source,
+                                                stream,
+                                                Arc::new(cfg),
+                                                s,
+                                                r,
+                                                None,
+                                                source,
                                             )
                                             .await
                                         }
@@ -207,7 +266,7 @@ impl InboundManager {
                                             Ok(())
                                         }
                                         InboundSettings::Http(cfg) => {
-                                            http::listen_stream(r, s, stream, cfg, source).await
+                                            http::listen_stream(r, s, stream, cfg, source, mitm).await
                                         }
                                         InboundSettings::ReversePortal(cfg) => {
                                             reverse_portal::listen_stream_tcp(
@@ -237,7 +296,8 @@ impl InboundManager {
                     };
 
                     info!("Starting QUIC listener on UDP {}:{}", listen, port);
-                    let quic_listener = match quic::listen(&listen, port, &certificate).await {
+                    let quic_params = stream_settings.as_ref().and_then(|s| s.finalmask.as_ref()).and_then(|fm| fm.quic_params.clone());
+                    let quic_listener = match quic::listen(&listen, port, &certificate, quic_params).await {
                         Ok(l) => l,
                         Err(e) => {
                             error!("Failed to bind QUIC listener for {}: {}", tag, e);

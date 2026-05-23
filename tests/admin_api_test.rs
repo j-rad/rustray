@@ -3,7 +3,6 @@
 //!
 //! Tests user CRUD, quota enforcement, billing, and audit logging contracts.
 
-
 #[actix_rt::test]
 async fn test_user_crud_contract() {
     // Validate user CRUD API contracts

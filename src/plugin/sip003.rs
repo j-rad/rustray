@@ -30,22 +30,19 @@ pub struct Sip003Config {
 impl Sip003Config {
     /// Parse SIP003 env vars from the current environment.
     pub fn from_env() -> io::Result<Self> {
-        let remote_host = std::env::var(SS_REMOTE_HOST)
-            .unwrap_or_else(|_| "127.0.0.1".to_string());
+        let remote_host = std::env::var(SS_REMOTE_HOST).unwrap_or_else(|_| "127.0.0.1".to_string());
         let remote_port: u16 = std::env::var(SS_REMOTE_PORT)
             .unwrap_or_else(|_| "0".to_string())
             .parse()
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
-        let local_host = std::env::var(SS_LOCAL_HOST)
-            .unwrap_or_else(|_| "127.0.0.1".to_string());
+        let local_host = std::env::var(SS_LOCAL_HOST).unwrap_or_else(|_| "127.0.0.1".to_string());
         let local_port: u16 = std::env::var(SS_LOCAL_PORT)
             .unwrap_or_else(|_| "0".to_string())
             .parse()
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
 
-        let plugin_options = Self::parse_options(
-            &std::env::var(SS_PLUGIN_OPTIONS).unwrap_or_default(),
-        );
+        let plugin_options =
+            Self::parse_options(&std::env::var(SS_PLUGIN_OPTIONS).unwrap_or_default());
 
         Ok(Self {
             remote_host,
@@ -155,10 +152,7 @@ pub struct PluginProcess {
 
 impl PluginProcess {
     /// Launch a SIP003 plugin as a child process.
-    pub async fn launch(
-        plugin_path: &str,
-        config: Sip003Config,
-    ) -> io::Result<Self> {
+    pub async fn launch(plugin_path: &str, config: Sip003Config) -> io::Result<Self> {
         let env_vars = config.build_env_vars();
 
         info!(
@@ -180,7 +174,6 @@ impl PluginProcess {
 
         Ok(Self { child, config })
     }
-
 
     /// Check if the plugin process is still running.
     pub fn is_running(&mut self) -> bool {

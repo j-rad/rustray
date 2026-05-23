@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
+use std::net::IpAddr;
 use tokio::sync::broadcast;
 
 static GLOBAL_STATS_MANAGER: OnceLock<Arc<StatsManager>> = OnceLock::new();
@@ -43,6 +44,13 @@ pub struct MonitorStats {
     pub total_fail: u64,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FlowMetadata {
+    pub latency_ms: u64,
+    pub success_rate: f64,
+    pub fingerprint_risk_bytes: u64,
+}
+
 #[derive(Clone)]
 pub struct StatsManager {
     pub config: Arc<ArcSwap<Config>>,
@@ -55,6 +63,8 @@ pub struct StatsManager {
     pub connection_metrics: DashMap<String, VecDeque<ConnectionMetrics>>,
     /// Background monitor stats per outbound tag
     pub outbound_stats: DashMap<String, MonitorStats>,
+    /// Flow metadata for tracking ISP probing and heuristics
+    pub flow_metadata: DashMap<IpAddr, FlowMetadata>,
     pub config_event_tx: broadcast::Sender<ConfigEvent>,
 }
 
@@ -75,6 +85,7 @@ impl StatsManager {
             online_ips: DashMap::new(),
             connection_metrics: DashMap::new(),
             outbound_stats: DashMap::new(),
+            flow_metadata: DashMap::new(),
             config_event_tx: tx,
         };
         let _ = GLOBAL_STATS_MANAGER.set(Arc::new(instance.clone()));

@@ -14,8 +14,7 @@ use tokio::net::UdpSocket;
 use tracing::{debug, info, warn};
 
 /// Rotation strategy for the multiport pool.
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum MultiportStrategy {
     /// Rotate sequentially through a fixed pool of pre-bound ports.
     #[default]
@@ -23,7 +22,6 @@ pub enum MultiportStrategy {
     /// Randomly select a port from the pool on every rotation.
     DynamicRandom,
 }
-
 
 /// A multiport pool that manages multiple sockets for QUIC packet rotation.
 pub struct MultiportSocketPool {

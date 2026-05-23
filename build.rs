@@ -32,6 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "proto/tuic.proto",
         "proto/wiregaurd.proto",
         "proto/warp.proto",
+        "proto/control.proto",
     ];
 
     // Verify all proto files exist

@@ -10,6 +10,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
+use crate::error::Result;
+use std::io;
 
 /// Connection state enum
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -343,6 +346,29 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for TrackedStream<S> {
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
         Pin::new(&mut self.inner).poll_shutdown(cx)
+    }
+}
+
+impl<S: TrinityTransport + Unpin + Send + 'static> TrinityTransport for TrackedStream<S> {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        self.inner.switch_carrier(new_carrier)
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        self.inner.apply_fragmentation()
+    }
+
+    fn handover(self, new_tal: BoxedTrinityTransport) -> Result<Self> {
+        let me = std::mem::ManuallyDrop::new(self);
+        Ok(Self {
+            inner: unsafe { std::ptr::read(&me.inner) }.handover(new_tal)?,
+            session_id: unsafe { std::ptr::read(&me.session_id) },
+            uploaded_ref: unsafe { std::ptr::read(&me.uploaded_ref) },
+            downloaded_ref: unsafe { std::ptr::read(&me.downloaded_ref) },
+        })
     }
 }
 

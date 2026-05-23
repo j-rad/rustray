@@ -21,8 +21,7 @@ use tracing::{debug, info, warn};
 /// - `Standard`: Standard MTU (1500) for typical ethernet networks.
 /// - `Jumbo`: Jumbo frames (9000) for high-performance LAN/Data Center.
 /// - `Custom`: User-defined MTU value.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MtuProfile {
     /// 1400 MTU - Conservative for cellular/mobile networks
     #[default]
@@ -64,7 +63,6 @@ impl MtuProfile {
         self.mtu() as usize + 64
     }
 }
-
 
 impl From<u16> for MtuProfile {
     fn from(mtu: u16) -> Self {

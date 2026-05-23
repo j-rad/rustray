@@ -2,8 +2,8 @@
 //! Integration tests for UDP-over-TCP fallback multiplexer.
 
 use rustray::transport::udp_fallback::UdpOverTcpStream;
-use tokio::net::TcpListener;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpListener;
 
 #[tokio::test]
 async fn test_udp_over_tcp_datagram_roundtrip() {
@@ -13,12 +13,12 @@ async fn test_udp_over_tcp_datagram_roundtrip() {
 
     let server_task = tokio::spawn(async move {
         let (mut stream, _) = listener.accept().await.unwrap();
-        
+
         // Read length prefix
         let len = stream.read_u16().await.unwrap() as usize;
         let mut payload = vec![0u8; len];
         stream.read_exact(&mut payload).await.unwrap();
-        
+
         // Echo it back with length prefix
         stream.write_u16(len as u16).await.unwrap();
         stream.write_all(&payload).await.unwrap();
@@ -47,13 +47,13 @@ async fn test_udp_over_tcp_multiple_datagrams() {
 
     let server_task = tokio::spawn(async move {
         let (mut stream, _) = listener.accept().await.unwrap();
-        
+
         // Read and echo 3 datagrams
         for _ in 0..3 {
             let len = stream.read_u16().await.unwrap() as usize;
             let mut payload = vec![0u8; len];
             stream.read_exact(&mut payload).await.unwrap();
-            
+
             stream.write_u16(len as u16).await.unwrap();
             stream.write_all(&payload).await.unwrap();
         }

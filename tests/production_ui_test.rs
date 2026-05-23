@@ -3,7 +3,6 @@
 //!
 //! Validates headless server lifecycle and atomic config updates.
 
-
 #[actix_rt::test]
 async fn test_headless_server_lifecycle() {
     // Note: This test validates the structure and API contracts.

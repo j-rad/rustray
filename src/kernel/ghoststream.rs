@@ -31,9 +31,9 @@ use std::collections::HashSet;
 use std::net::Ipv4Addr;
 use std::{fs, io};
 
+use aya::Bpf;
 use aya::maps::HashMap as BpfHashMap;
 use aya::programs::{Xdp, XdpFlags};
-use aya::Bpf;
 use tracing::{debug, error, info, warn};
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -83,7 +83,10 @@ fn detect_primary_nic() -> io::Result<String> {
             return Ok(name.to_string());
         }
     }
-    Err(io::Error::new(io::ErrorKind::NotFound, "No primary NIC found"))
+    Err(io::Error::new(
+        io::ErrorKind::NotFound,
+        "No primary NIC found",
+    ))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -379,12 +382,12 @@ pub fn rfc1624_checksum_update(old_check: u16, old_word: u16, new_word: u16) -> 
 /// Conventionally the eBPF ELF is embedded via `include_bytes!` or placed next
 /// to the binary.  We look for it in the same directory as the running binary.
 fn elf_path() -> String {
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            let candidate = dir.join("ghoststream.elf");
-            if candidate.exists() {
-                return candidate.to_string_lossy().into_owned();
-            }
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(dir) = exe.parent()
+    {
+        let candidate = dir.join("ghoststream.elf");
+        if candidate.exists() {
+            return candidate.to_string_lossy().into_owned();
         }
     }
     // Fallback: look in /usr/share/rustray/
@@ -404,28 +407,19 @@ mod tests {
     #[test]
     fn test_mss_range_too_small_rejected() {
         let result = GhostStreamController::load_with_mss(32, 128);
-        assert!(
-            result.is_err(),
-            "MSS min < 64 should be rejected"
-        );
+        assert!(result.is_err(), "MSS min < 64 should be rejected");
     }
 
     #[test]
     fn test_mss_range_inverted_rejected() {
         let result = GhostStreamController::load_with_mss(128, 64);
-        assert!(
-            result.is_err(),
-            "min > max should be rejected"
-        );
+        assert!(result.is_err(), "min > max should be rejected");
     }
 
     #[test]
     fn test_mss_range_too_large_rejected() {
         let result = GhostStreamController::load_with_mss(64, 2000);
-        assert!(
-            result.is_err(),
-            "MSS max > 1500 should be rejected"
-        );
+        assert!(result.is_err(), "MSS max > 1500 should be rejected");
     }
 
     // ── SNI split position calculator ────────────────────────────────────────

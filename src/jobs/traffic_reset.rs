@@ -11,8 +11,7 @@ use tokio::time::interval;
 use tracing::info;
 
 /// Reset schedule configuration
-#[derive(Clone, Debug)]
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub enum ResetSchedule {
     /// Reset on the first of each month
     #[default]
@@ -24,7 +23,6 @@ pub enum ResetSchedule {
     /// Never auto-reset
     Never,
 }
-
 
 /// Traffic reset job configuration
 #[derive(Clone, Debug)]
@@ -140,9 +138,10 @@ impl TrafficResetJob {
 
         // Persist to database
         if let Some(db) = &self.db
-            && let Err(e) = self.persist_reset(db).await {
-                tracing::error!("Failed to persist traffic reset: {}", e);
-            }
+            && let Err(e) = self.persist_reset(db).await
+        {
+            tracing::error!("Failed to persist traffic reset: {}", e);
+        }
 
         info!("Traffic reset complete");
     }

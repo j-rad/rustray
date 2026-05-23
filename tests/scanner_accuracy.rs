@@ -138,7 +138,9 @@ fn test_poisoning_logic() {
 
     let is_poisoned_clean = poisoned_ips.iter().any(|ip| {
         let octets: Vec<u8> = ip.split('.').map(|s| s.parse().unwrap()).collect();
-        clean_packet.windows(octets.len()).any(|w| w == octets.as_slice())
+        clean_packet
+            .windows(octets.len())
+            .any(|w| w == octets.as_slice())
     });
 
     assert!(!is_poisoned_clean);

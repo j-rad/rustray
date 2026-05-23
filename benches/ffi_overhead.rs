@@ -166,6 +166,7 @@ fn bench_ffi_config_serialize(c: &mut Criterion) {
             interval: "20-50".to_string(),
         }),
         flow_j_settings: None,
+        masquerade_weights: None,
         local_address: "127.0.0.1".to_string(),
         local_port: 1080,
         enable_udp: true,
@@ -293,7 +294,6 @@ fn bench_fragment_config_parse(c: &mut Criterion) {
 
 /// Compare FFI overhead vs raw operation
 fn bench_ffi_overhead_comparison(c: &mut Criterion) {
-    
     use rustray::protocols::vless_vision::VisionFlow;
 
     let _mock_data: Vec<u8> = vec![0x16, 0x03, 0x03, 0x00, 0x20]; // TLS header

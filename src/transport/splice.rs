@@ -1,4 +1,5 @@
-use crate::transport::BoxedStream;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
+use crate::error::Result;
 use std::io;
 use std::os::unix::io::AsRawFd;
 use tokio::io::Interest;
@@ -7,8 +8,8 @@ use tracing::debug;
 
 #[cfg(target_os = "linux")]
 pub async fn splice_bidirectional(
-    inbound: &mut BoxedStream,
-    outbound: &mut BoxedStream,
+    inbound: &mut BoxedTrinityTransport,
+    outbound: &mut BoxedTrinityTransport,
 ) -> Option<io::Result<(u64, u64)>> {
     // Attempt downcast to TcpStream
     // Note: BoxedStream is Box<dyn AsyncStream>.
@@ -135,7 +136,7 @@ async fn splice_loop(
                     std::ptr::null_mut(),
                     w_fd,
                     std::ptr::null_mut(),
-                    spliced_to_pipe - written_from_pipe ,
+                    spliced_to_pipe - written_from_pipe,
                     libc::SPLICE_F_MOVE | libc::SPLICE_F_NONBLOCK,
                 )
             };
@@ -212,5 +213,25 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for PrefixStream<S> {
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Pin::new(&mut self.inner).poll_shutdown(cx)
+    }
+}
+
+impl<S: TrinityTransport + Unpin + Send + 'static> TrinityTransport for PrefixStream<S> {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        self.inner.switch_carrier(new_carrier)
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        self.inner.apply_fragmentation()
+    }
+
+    fn handover(self, new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Ok(Self {
+            inner: self.inner.handover(new_tal)?,
+            prefix: self.prefix,
+        })
     }
 }

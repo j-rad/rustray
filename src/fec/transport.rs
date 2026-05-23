@@ -1,12 +1,12 @@
 // src/fec/transport.rs
+use crate::fec::rs::{FEC_HEADER_SIZE, FecDecoder, FecEncoder, FecPacket};
+use bytes::{Bytes, BytesMut};
 use lru::LruCache;
-use std::num::NonZeroUsize;
 use std::io;
 use std::net::SocketAddr;
+use std::num::NonZeroUsize;
 use tokio::net::UdpSocket;
 use tokio::sync::Mutex;
-use bytes::{BytesMut, Bytes};
-use crate::fec::rs::{FecPacket, FecEncoder, FecDecoder, FEC_HEADER_SIZE};
 
 /// FEC Configuration
 #[derive(Debug, Clone, Copy, serde::Deserialize, serde::Serialize)]
@@ -35,7 +35,7 @@ pub struct FecUdpSocket {
 impl FecUdpSocket {
     pub fn new(socket: UdpSocket, config: FecConfig) -> io::Result<Self> {
         let encoder = FecEncoder::new(config.data_shards, config.parity_shards)?;
-        
+
         Ok(Self {
             socket,
             config,
@@ -48,13 +48,13 @@ impl FecUdpSocket {
     pub async fn send_fec(&self, data: &[Bytes], target: SocketAddr) -> io::Result<()> {
         let mut encoder = self.encoder.lock().await;
         let packets = encoder.encode(data)?;
-        
+
         for packet in packets {
             let mut buf = BytesMut::with_capacity(FEC_HEADER_SIZE + packet.data.len());
             packet.encode_header(&mut buf);
             self.socket.send_to(&buf, target).await?;
         }
-        
+
         Ok(())
     }
 
@@ -65,32 +65,32 @@ impl FecUdpSocket {
         loop {
             let (len, src) = self.socket.recv_from(&mut buf).await?;
             let packet = FecPacket::decode(&buf[..len])?;
-            
+
             let mut groups = self.groups.lock().await;
             let group_id = packet.group_id;
             let total_shards = packet.total_shards as usize;
-            
+
             if !groups.contains(&group_id) {
                 groups.put(group_id, (0, vec![None; total_shards]));
             }
             let entry = groups.get_mut(&group_id).unwrap();
-            
+
             if entry.1[packet.shard_id as usize].is_none() {
                 entry.1[packet.shard_id as usize] = Some(packet.data.to_vec());
                 entry.0 += 1;
             }
-            
+
             // If we have enough shards to decode
             if entry.0 >= self.config.data_shards {
                 let decoder = FecDecoder::new(self.config.data_shards, self.config.parity_shards)?;
-                
+
                 // We use entry.1.clone() before removing
                 let shards_to_decode = entry.1.clone();
                 let reconstructed = decoder.decode(shards_to_decode)?;
-                
+
                 // Remove group once decoded
                 groups.pop(&group_id);
-                
+
                 let result = reconstructed.into_iter().map(Bytes::from).collect();
                 return Ok((result, src));
             }

@@ -3,9 +3,7 @@
 //! Provides NAT traversal, peer-to-peer connection establishment with UDP hole punching,
 //! and relay fallback for scenarios where direct connection is not possible.
 
-use crate::api::signaling::{
-    PeerJoinReceiver, determine_connection_strategy,
-};
+use crate::api::signaling::{PeerJoinReceiver, determine_connection_strategy};
 use crate::app::reverse::session::SessionToken;
 use crate::error::Result;
 use crate::transport::BoxedStream;

@@ -183,10 +183,11 @@ impl FecDecoder {
 
         // Try to decode if we have enough shards
         if group.received >= group.data_shards
-            && let Some(data) = self.try_decode(seq) {
-                self.pending.remove(&seq);
-                return Some(data);
-            }
+            && let Some(data) = self.try_decode(seq)
+        {
+            self.pending.remove(&seq);
+            return Some(data);
+        }
 
         // Cleanup old groups
         self.cleanup_expired();

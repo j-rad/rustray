@@ -237,10 +237,10 @@ async fn decoy_handler(
         .header("X-Content-Type-Options", "nosniff")
         .header("X-Frame-Options", "SAMEORIGIN")
         .header("Cache-Control", "public, max-age=3600")
-        .body(http_body_util::Full::new(Bytes::from(html.as_bytes().to_vec())))
-        .unwrap_or_else(|_| {
-            Response::new(http_body_util::Full::new(Bytes::from("OK")))
-        });
+        .body(http_body_util::Full::new(Bytes::from(
+            html.as_bytes().to_vec(),
+        )))
+        .unwrap_or_else(|_| Response::new(http_body_util::Full::new(Bytes::from("OK"))));
 
     debug!("Decoy: Served {} clone page", domain);
     Ok(response)
@@ -250,8 +250,12 @@ async fn decoy_handler(
 ///
 /// This should be spawned as a background task on every VPS.
 /// Returns a `JoinHandle` for the server task.
-pub async fn start_decoy_server(config: DecoyConfig) -> anyhow::Result<tokio::task::JoinHandle<()>> {
-    let addr: SocketAddr = config.listen_addr.parse()
+pub async fn start_decoy_server(
+    config: DecoyConfig,
+) -> anyhow::Result<tokio::task::JoinHandle<()>> {
+    let addr: SocketAddr = config
+        .listen_addr
+        .parse()
         .unwrap_or_else(|_| "0.0.0.0:8443".parse().unwrap());
 
     let listener = TcpListener::bind(addr).await?;
@@ -268,9 +272,8 @@ pub async fn start_decoy_server(config: DecoyConfig) -> anyhow::Result<tokio::ta
                     let domain = domain.clone();
                     tokio::spawn(async move {
                         let io = TokioIo::new(stream);
-                        let svc = service_fn(move |req| {
-                            decoy_handler(req, html.clone(), domain.clone())
-                        });
+                        let svc =
+                            service_fn(move |req| decoy_handler(req, html.clone(), domain.clone()));
                         if let Err(e) = hyper_util::server::conn::auto::Builder::new(
                             hyper_util::rt::TokioExecutor::new(),
                         )
@@ -330,19 +333,28 @@ mod tests {
     fn test_check_magic_found() {
         // Simulate TCP options with our magic trigger.
         let data = [0, 0, 253, 6, 0x52, 0x52, 0x41, 0x59, 0, 0];
-        assert!(TimingTriggerDetector::check_magic(&data, &[0x52, 0x52, 0x41, 0x59]));
+        assert!(TimingTriggerDetector::check_magic(
+            &data,
+            &[0x52, 0x52, 0x41, 0x59]
+        ));
     }
 
     #[test]
     fn test_check_magic_not_found() {
         let data = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-        assert!(!TimingTriggerDetector::check_magic(&data, &[0x52, 0x52, 0x41, 0x59]));
+        assert!(!TimingTriggerDetector::check_magic(
+            &data,
+            &[0x52, 0x52, 0x41, 0x59]
+        ));
     }
 
     #[test]
     fn test_check_magic_too_short() {
         let data = [253, 6, 0x52];
-        assert!(!TimingTriggerDetector::check_magic(&data, &[0x52, 0x52, 0x41, 0x59]));
+        assert!(!TimingTriggerDetector::check_magic(
+            &data,
+            &[0x52, 0x52, 0x41, 0x59]
+        ));
     }
 
     #[test]

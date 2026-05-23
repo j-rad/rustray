@@ -77,8 +77,15 @@ impl DnsTransport {
 
         let task_state = state.clone();
         let proxy_task = tokio::spawn(async move {
-            Self::proxy_loop(task_state, socket, resolver, domain, max_payload, poll_interval)
-                .await;
+            Self::proxy_loop(
+                task_state,
+                socket,
+                resolver,
+                domain,
+                max_payload,
+                poll_interval,
+            )
+            .await;
         });
 
         Ok(Self {

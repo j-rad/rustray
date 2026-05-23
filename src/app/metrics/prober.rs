@@ -107,12 +107,13 @@ impl Prober {
         };
 
         if let Some(isp) = &metrics.isp_detected
-            && isp == "MCI" {
-                // Adversarial hardening for MCI: clamp MSS to hide fingerprint
-                // and increase jitter to defeat AI timing classifiers.
-                shaping.mss = 1200;
-                shaping.flow_j_jitter_multiplier = 2.5;
-            }
+            && isp == "MCI"
+        {
+            // Adversarial hardening for MCI: clamp MSS to hide fingerprint
+            // and increase jitter to defeat AI timing classifiers.
+            shaping.mss = 1200;
+            shaping.flow_j_jitter_multiplier = 2.5;
+        }
 
         shaping
     }

@@ -3,8 +3,8 @@ use crate::app::dns::DnsServer;
 use crate::app::stats::StatsManager;
 use crate::config::SocksSettings;
 use crate::error::Result;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
 use crate::router::Router;
-use crate::transport::BoxedStream;
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -14,20 +14,22 @@ pub async fn listen_stream(
     router: Arc<Router>,
     dns_server: Arc<DnsServer>,
     state: Arc<StatsManager>,
-    stream: BoxedStream,
+    stream: BoxedTrinityTransport,
     settings: SocksSettings,
     source: String,
+    mitm_manager: Arc<tokio::sync::RwLock<Option<Arc<crate::transport::mitm::MitmManager>>>>,
 ) -> Result<()> {
-    handle_connection(router, dns_server, state, stream, &settings, source).await
+    handle_connection(router, dns_server, state, stream, &settings, source, mitm_manager).await
 }
 
 async fn handle_connection(
     router: Arc<Router>,
     dns_server: Arc<DnsServer>,
     state: Arc<StatsManager>,
-    mut stream: BoxedStream,
+    mut stream: BoxedTrinityTransport,
     _settings: &SocksSettings,
     source: String,
+    mitm_manager: Arc<tokio::sync::RwLock<Option<Arc<crate::transport::mitm::MitmManager>>>>,
 ) -> Result<()> {
     // ... (Handshake logic) ...
     let ver = stream.read_u8().await?;
@@ -68,10 +70,25 @@ async fn handle_connection(
     match cmd {
         0x01 => {
             // CONNECT
+            // CONNECT success response
             stream
                 .write_all(&[5, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
                 .await?;
+            
             let default_policy = state.policy_manager.get_policy(0);
+            
+            // MITM Hijacking
+            let mitm_lock = mitm_manager.read().await;
+            if let Some(manager) = mitm_lock.as_ref() {
+                // Peek to see if it's TLS? Or just assume if it's 443.
+                // For now, if port is 443 and MITM enabled, we hijack.
+                if port == 443 {
+                    use tracing::debug;
+                    debug!("SOCKS5: Hijacking connection to {}:{} for MITM", host, port);
+                    stream = manager.wrap_stream(stream, &host).await?;
+                }
+            }
+
             router
                 .route_stream(stream, host, port, source, default_policy)
                 .await?;
@@ -100,7 +117,7 @@ async fn handle_connection(
 /// Handle SOCKS5 UDP ASSOCIATE relay
 /// UDP packets are framed as: [RSV(2)] [FRAG] [ATYP] [DST.ADDR] [DST.PORT] [DATA]
 async fn handle_socks5_udp_relay(
-    mut _stream: BoxedStream,
+    mut _stream: BoxedTrinityTransport,
     _router: Arc<Router>,
     _dns_server: Arc<DnsServer>,
 ) -> Result<()> {

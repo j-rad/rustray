@@ -143,8 +143,7 @@ impl ServerConfig {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum RoutingMode {
     /// Proxy all traffic
     Global,
@@ -159,16 +158,13 @@ pub enum RoutingMode {
     Rule,
 }
 
-
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PerAppMode {
     #[default]
     Global,
     Whitelist,
     Blacklist,
 }
-
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct TunnelConfig {

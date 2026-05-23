@@ -22,6 +22,11 @@ minimal-server = ["actix-web", "actix-rt", "actix-service", "prost", "dep:rust-e
 full-server = ["minimal-server", "tonic", "prost", "surrealdb", "actix-web-tonic", "quic"]
 # QUIC feature group - enables quiche, h3, and DNS-over-QUIC
 quic = ["dep:quiche", "dep:h3", "hickory-resolver/dns-over-quic"]
+ebpf = []
+masque = []
+cdn_loop = []
+stego = []
+shaping = []
 jemalloc = []
 
 [dependencies]
@@ -50,6 +55,7 @@ pbkdf2 = "0.12"
 sha2 = "0.10"
 # rand needs js feature for WASM
 rand = { version = "0.8", features = ["small_rng"] }
+pin-project-lite = "0.2"
 crossbeam-queue = "0.3.12"
 percent-encoding = "2.3.2"
 arc-swap = "1.8.0"
@@ -57,6 +63,14 @@ mdns-sd = "0.18.0"
 zstd = "0.13.3"
 rand_distr = "0.4"
 tonic-health = "0.12"
+async-stream = "0.3"
+webrtc = "0.12.0"
+surrealdb = { version = "2.6.5", features = ["kv-mem", "kv-surrealkv"], optional = true }
+surrealdb-core = { version = "2.1.0", optional = true }
+scraper = "0.26.0"
+reqwest = "0.12"
+libc = "0.2"
+rcgen = "0.13.2"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
@@ -64,11 +78,11 @@ getrandom = { version = "0.2", features = ["js"] }
 # --- Desktop/Mobile Only Dependencies ---
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 jemallocator = "0.5"
-libc = "0.2"
 # --- Core Async Runtime ---
 tokio = { version = "1.48.0", features = ["full", "process"] }
-tokio-stream = "0.1"
-tokio-util = { version = "0.7", features = ["compat"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+tokio-util = { version = "0.7", features = ["compat", "codec"] }
+json-patch = "3"
 
 # --- gRPC & API Server ---
 tonic = { version = "0.12", optional = true }
@@ -94,7 +108,7 @@ radix_trie = "0.3"
 aho-corasick = "1.1"
 regex = "1.12"
 russh-keys = "0.49.2"
-rutls = { git = "https://github.com/FaezBarghasa/rutls-workspace", features = ["tokio"] }
+# rutls removed per refactoring plan
 ring = "0.17.8"
 blake3 = "1.5.1"
 x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
@@ -109,6 +123,10 @@ yamux = "0.13"
 boringtun = { git = "https://github.com/cloudflare/boringtun" }
 lru = "0.16.2"
 rustls-pemfile = "2.2.0" # For parsing PEM certificates
+postcard = { version = "1.0", features = ["alloc"] }
+chacha20poly1305 = "0.10"
+maxminddb = "0.24"
+socket2 = { version = "0.5", features = ["all"] }
 
 
 clap = { version = "4.5.53", features = ["derive"] }
@@ -127,7 +145,6 @@ mime_guess = { version = "2", optional = true }
 hickory-resolver = { version = "0.24.4", features = ["dns-over-https-rustls", "dns-over-quic", "webpki-roots"] }
 dashmap = "*"
 prometheus = { version = "*", features = ["process"] }
-socket2 = "*"
 tokio-tungstenite = { version = "*", default-features = false, features = ["rustls-tls-native-roots"] }
 tokio_kcp = "*"
 hyper = { version = "1.4.1", features = ["full"] }
@@ -149,7 +166,7 @@ nix = { version = "0.29", features = ["fs", "socket"] }
 memmap2 = "0.9"
 tun-rs = { version = "2", features = ["async"] }
 smoltcp = { version = "0.11", features = ["std", "socket-tcp", "socket-udp", "socket-icmp", "proto-ipv4", "proto-ipv6", "async"] }
-surrealdb = { version = "2.1.0", features = ["kv-surrealkv"], optional = true }
+# surrealdb moved to workspace and consolidated
 
 russh = "0.55.0"
 arti-client = { version = "0.37.0", default-features = false, features = ["tokio", "rustls", "compression"] }
@@ -201,6 +218,9 @@ harness = false
 [[bench]]
 name = "dns_codec_bench"
 harness = false
+[[bench]]
+name = "tal_overhead"
+harness = false
 
 [package.metadata.deb]
 name = "rustray-server"
@@ -229,6 +249,6 @@ maintainer-scripts = "debian/"
 
 
 
-# [lints]
-# workspace = true
+#[lints]
+#workspace = true
 

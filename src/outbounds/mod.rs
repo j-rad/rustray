@@ -14,7 +14,8 @@ use crate::error::Result;
 use crate::protocols::{http_proxy, naive, shadowsocks_2022, trojan, vless, vmess, wireguard};
 #[cfg(feature = "quic")]
 use crate::protocols::{hysteria2, tuic};
-use crate::transport::{BoxedStream, Packet};
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
+use crate::transport::Packet;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -25,13 +26,13 @@ use tracing::info;
 pub trait Outbound: Send + Sync {
     async fn handle(
         &self,
-        stream: BoxedStream,
+        stream: BoxedTrinityTransport,
         host: String,
         port: u16,
         policy: Arc<LevelPolicy>,
     ) -> Result<()>;
 
-    async fn dial(&self, host: String, port: u16) -> Result<BoxedStream>;
+    async fn dial(&self, host: String, port: u16) -> Result<BoxedTrinityTransport>;
 
     async fn handle_packet(
         &self,
@@ -116,10 +117,16 @@ impl OutboundManager {
                     )),
                     #[cfg(feature = "quic")]
                     Some(OutboundSettings::Hysteria2(s)) => {
-                        Arc::new(hysteria2::Hysteria2Outbound::new(s.clone()))
+                        Arc::new(hysteria2::Hysteria2Outbound::new(
+                            s.clone(),
+                            outbound_config.stream_settings.clone(),
+                        ))
                     }
                     #[cfg(feature = "quic")]
-                    Some(OutboundSettings::Tuic(s)) => Arc::new(tuic::TuicOutbound::new(s.clone())),
+                    Some(OutboundSettings::Tuic(s)) => Arc::new(tuic::TuicOutbound::new(
+                        s.clone(),
+                        outbound_config.stream_settings.clone(),
+                    )),
                     #[cfg(not(feature = "quic"))]
                     Some(OutboundSettings::Hysteria2(_)) | Some(OutboundSettings::Tuic(_)) => {
                         // Fallback or error? Freedom is safest fallback to avoid panic

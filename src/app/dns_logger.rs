@@ -115,29 +115,27 @@ impl DnsLogger {
         }
 
         // If blocked, add to blocked domains log
-        if blocked {
-            if let Some(category) = self.should_block(domain) {
-                let now = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs();
+        if blocked && let Some(category) = self.should_block(domain) {
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
 
-                let mut blocked = self.blocked_domains.write().unwrap();
+            let mut blocked = self.blocked_domains.write().unwrap();
 
-                blocked
-                    .entry(domain.to_string())
-                    .and_modify(|e| {
-                        e.request_count += 1;
-                        e.blocked_at = now;
-                    })
-                    .or_insert(BlockedDomainEntry {
-                        domain: domain.to_string(),
-                        category,
-                        blocked_at: now,
-                        request_count: 1,
-                        source_ip,
-                    });
-            }
+            blocked
+                .entry(domain.to_string())
+                .and_modify(|e| {
+                    e.request_count += 1;
+                    e.blocked_at = now;
+                })
+                .or_insert(BlockedDomainEntry {
+                    domain: domain.to_string(),
+                    category,
+                    blocked_at: now,
+                    request_count: 1,
+                    source_ip,
+                });
         }
     }
 

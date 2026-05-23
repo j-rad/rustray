@@ -1,5 +1,5 @@
 // benches/relay_throughput.rs
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 // Microbenchmark for deriving the PSK hash, as it's the core crypto component in the handshake.
 fn derive_psk_key(psk: &str) -> [u8; 32] {
@@ -19,7 +19,7 @@ fn bench_relay_derive_key(c: &mut Criterion) {
 fn bench_relay_auth_hash(c: &mut Criterion) {
     let psk_key = derive_psk_key("bench_psk");
     let challenge = [0xAA; 32];
-    
+
     c.bench_function("compute_auth_response", |b| {
         b.iter(|| {
             let mut hasher = blake3::Hasher::new();

@@ -1,19 +1,20 @@
 use crate::app::stats::StatsManager;
 use crate::config::HttpProxySettings;
 use crate::error::Result;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
 use crate::router::Router;
-use crate::transport::BoxedStream;
 use bytes::BytesMut;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tracing::info;
+use tracing::{debug, info};
 
 pub async fn listen_stream(
     router: Arc<Router>,
     state: Arc<StatsManager>,
-    mut stream: BoxedStream,
+    mut stream: BoxedTrinityTransport,
     _settings: HttpProxySettings,
     source: String,
+    mitm_manager: Arc<tokio::sync::RwLock<Option<Arc<crate::transport::mitm::MitmManager>>>>,
 ) -> Result<()> {
     let mut buf = BytesMut::with_capacity(4096);
 
@@ -103,36 +104,39 @@ pub async fn listen_stream(
     let policy = state.policy_manager.get_policy(0);
 
     if method == "CONNECT" {
-        // Respond 200 OK
+        // Check for MITM
+        let mitm_lock = mitm_manager.read().await;
+        if let Some(manager) = mitm_lock.as_ref() {
+            debug!("HTTP Inbound: Hijacking CONNECT {} for MITM", target_host);
+            // Respond 200 OK first
+            stream
+                .write_all(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+                .await?;
+            
+            // Wrap in MITM TLS
+            stream = manager.wrap_stream(stream, &target_host).await?;
+            
+            // Now we have a decrypted stream.
+            // For Domain Fronting evasion, we typically want to route this stream to a fronted outbound.
+            return router
+                .route_stream(stream, target_host, target_port, source.clone(), policy)
+                .await;
+        }
+
+        // Standard CONNECT logic
         stream
             .write_all(b"HTTP/1.1 200 Connection Established\r\n\r\n")
             .await?;
-        // Now route as stream
-        // CONSUME the buffer? No, CONNECT payload starts after the header.
-        // If we consumed more than header?
-        let header_len = req.parse(&buf)?.unwrap(); // Get offset
+        
+        let header_len = req.parse(&buf)?.unwrap(); 
         let body_start = header_len;
-
         if body_start < buf.len() {
-            // We have body? CONNECT usually doesn't have body.
-            // But if client sent data early?
-            // Route stream and prepend extra data?
-            // Need "Splice" or construct new stream with prepend.
-            // BoxedStream doesn't support prepend easily unless we wrap it.
-            // We can use `tokio::io::chain`?
-            // `Box::new(Cursor::new(remaining).chain(stream))`
             let remaining = buf.split_off(body_start);
-            // Verify if chain works with BoxedStream (needs AsyncRead/Write).
-            // Chain only implements AsyncRead.
-            // We need Read+Write.
-            // So we need a struct `PrefixStream`
-            // For now assume CONNECT has no body in first packet usually.
             if !remaining.is_empty() {
-                // Wrap the stream to include the early body
                 stream = Box::new(crate::transport::splice::PrefixStream::new(
                     stream,
                     remaining.freeze(),
-                ));
+                )) as BoxedTrinityTransport;
             }
         }
 
@@ -167,7 +171,7 @@ pub async fn listen_stream(
         // Let's implement PrefixStream here.
         let stream = crate::transport::splice::PrefixStream::new(stream, buf.freeze());
         router
-            .route_stream(Box::new(stream), target_host, target_port, source, policy)
+            .route_stream(Box::new(stream) as BoxedTrinityTransport, target_host, target_port, source, policy)
             .await
     }
 }

@@ -1,8 +1,8 @@
 // benches/fec_encoding_bench.rs
-use criterion::{Criterion, criterion_group, criterion_main};
-use std::hint::black_box;
-use rustray::fec::rs::{FecEncoder, FecDecoder};
 use bytes::Bytes;
+use criterion::{Criterion, criterion_group, criterion_main};
+use rustray::fec::rs::{FecDecoder, FecEncoder};
+use std::hint::black_box;
 
 fn bench_fec_encode(c: &mut Criterion) {
     let mut group = c.benchmark_group("fec_encode");
@@ -38,9 +38,7 @@ fn bench_fec_decode(c: &mut Criterion) {
     let packets = encoder.encode(&data).unwrap();
 
     // Simulate losing 2 shards
-    let mut shards: Vec<Option<Vec<u8>>> = packets.iter()
-        .map(|p| Some(p.data.to_vec()))
-        .collect();
+    let mut shards: Vec<Option<Vec<u8>>> = packets.iter().map(|p| Some(p.data.to_vec())).collect();
     shards[0] = None;
     shards[5] = None;
 

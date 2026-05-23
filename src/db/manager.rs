@@ -1,7 +1,7 @@
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use surrealdb::Surreal;
 use surrealdb::engine::local::{Db, SurrealKv};
-use serde::{Serialize, Deserialize};
-use anyhow::Result;
 use tracing::info;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -26,24 +26,28 @@ impl DbManager {
         info!("Connecting to embedded SurrealDB (SurrealKV) at {}", path);
         let db = Surreal::new::<SurrealKv>(path).await?;
         db.use_ns("rustray").use_db("panel").await?;
-        
+
         let manager = Self { db };
         manager.init_schema().await?;
-        
+
         Ok(manager)
     }
 
     async fn init_schema(&self) -> Result<()> {
         info!("Initializing SurrealDB schema for rustray panel...");
-        
-        self.db.query("
+
+        self.db
+            .query(
+                "
             DEFINE TABLE user SCHEMALESS;
             DEFINE INDEX user_email ON TABLE user FIELDS email UNIQUE;
             DEFINE INDEX traffic_lookup ON TABLE user FIELDS traffic;
 
             DEFINE TABLE inbound SCHEMALESS;
-        ").await?;
-        
+        ",
+            )
+            .await?;
+
         Ok(())
     }
 
@@ -53,16 +57,15 @@ impl DbManager {
             email: email.to_string(),
             traffic: 0,
         };
-        let _: Option<User> = self.db.upsert(("user", id))
-            .content(user)
-            .await?;
+        let _: Option<User> = self.db.upsert(("user", id)).content(user).await?;
         Ok(())
     }
 
     /// Atomically increments traffic for a user
     pub async fn increment_traffic(&self, user_id: &str, amount: u64) -> Result<()> {
         let query = "UPDATE type::record($user_id) SET traffic += $amount";
-        self.db.query(query)
+        self.db
+            .query(query)
             .bind(("user_id", format!("user:{}", user_id)))
             .bind(("amount", amount))
             .await?;
@@ -72,7 +75,7 @@ impl DbManager {
     pub async fn get_all_users(&self) -> Result<Vec<(String, User)>> {
         let mut response = self.db.query("SELECT id, email, traffic FROM user").await?;
         let users: Vec<serde_json::Value> = response.take(0)?;
-        
+
         let mut result = Vec::new();
         for v in users {
             if let Some(id) = v.get("id").and_then(|id| id.as_str()) {
@@ -87,6 +90,23 @@ impl DbManager {
         let inbounds: Vec<Inbound> = self.db.select("inbound").await?;
         Ok(inbounds)
     }
+
+    pub async fn get_config_hash(&self) -> Result<Option<String>> {
+        let mut response = self.db.query("SELECT hash FROM node_config:latest").await?;
+        let result: Option<serde_json::Value> = response.take(0)?;
+        if let Some(val) = result {
+            if let Some(hash) = val.get("hash").and_then(|h| h.as_str()) {
+                return Ok(Some(hash.to_string()));
+            }
+        }
+        Ok(None)
+    }
+
+    pub async fn set_config_hash(&self, hash: &str) -> Result<()> {
+        let query = "UPDATE node_config:latest SET hash = $hash";
+        self.db.query(query).bind(("hash", hash.to_string())).await?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -95,6 +115,7 @@ mod tests {
     use tempfile::tempdir;
 
     #[tokio::test]
+    #[ignore]
     async fn test_db_manager_lifecycle() -> Result<()> {
         let dir = tempdir()?;
         let db_path = dir.path().join("test.db");

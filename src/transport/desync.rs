@@ -27,7 +27,6 @@ pub enum DesyncStrategy {
     Fake,
 }
 
-
 /// Configuration for the desync engine.
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -122,85 +121,87 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for DesyncStream<S> {
     ) -> Poll<io::Result<usize>> {
         let this = self.get_mut();
 
-            let mut state = std::mem::replace(&mut this.state, WriteState::Passthrough);
+        let mut state = std::mem::replace(&mut this.state, WriteState::Passthrough);
 
-            match &mut state {
-                WriteState::Passthrough => {
-                    if this.writes_remaining == 0 || buf.len() <= this.config.split_offset {
-                        // Normal write
-                        let res = Pin::new(&mut this.inner).poll_write(cx, buf);
-                        this.state = state; // Restore
-                        return res;
-                    }
+        match &mut state {
+            WriteState::Passthrough => {
+                if this.writes_remaining == 0 || buf.len() <= this.config.split_offset {
+                    // Normal write
+                    let res = Pin::new(&mut this.inner).poll_write(cx, buf);
+                    this.state = state; // Restore
+                    return res;
+                }
 
-                    // Begin desync
-                    let split_at = this.config.split_offset.min(buf.len());
-                    let _first = Bytes::copy_from_slice(&buf[..split_at]);
-                    let remainder = Bytes::copy_from_slice(&buf[split_at..]);
+                // Begin desync
+                let split_at = this.config.split_offset.min(buf.len());
+                let _first = Bytes::copy_from_slice(&buf[..split_at]);
+                let remainder = Bytes::copy_from_slice(&buf[split_at..]);
 
-                    match this.config.strategy {
-                        DesyncStrategy::Split | DesyncStrategy::Fake => {
-                            match Pin::new(&mut this.inner).poll_write(cx, &buf[..split_at]) {
-                                Poll::Ready(Ok(n)) => {
-                                    if n == split_at {
-                                        let sleep = tokio::time::sleep(Duration::from_millis(this.config.delay_ms));
-                                        this.state = WriteState::Delaying {
-                                            sleep: Box::pin(sleep),
-                                            remainder,
-                                        };
-                                        // Return how many bytes we theoretically consumed so far, wait, we must 
-                                        // only return the bytes written if we don't plan to keep the buffer.
-                                        // Since tokio's AsyncWrite contract says we must not return Ok(N) if we haven't written N of the *user's* buffer...
-                                        // Actually, if we return `split_at`, the caller will call poll_write again with `&buf[n..]`. 
-                                        // So we shouldn't buffer the remainder internally! We just pass through after `split_at`.
-                                        // Wait, if we return `split_at`, the caller drives the rest. We just need to delay the *next* write!
-                                        // But this means we can't implement the exact microsecond delay *between* this write and next inside `poll_write` without returning Async.
-                                        // The simplest is: Write first part. Then return Ok(n). 
-                                        // Next time poll_write is called, we want to Delay, then Write.
-                                    }
-                                    Poll::Ready(Ok(n))
+                match this.config.strategy {
+                    DesyncStrategy::Split | DesyncStrategy::Fake => {
+                        match Pin::new(&mut this.inner).poll_write(cx, &buf[..split_at]) {
+                            Poll::Ready(Ok(n)) => {
+                                if n == split_at {
+                                    let sleep = tokio::time::sleep(Duration::from_millis(
+                                        this.config.delay_ms,
+                                    ));
+                                    this.state = WriteState::Delaying {
+                                        sleep: Box::pin(sleep),
+                                        remainder,
+                                    };
+                                    // Return how many bytes we theoretically consumed so far, wait, we must
+                                    // only return the bytes written if we don't plan to keep the buffer.
+                                    // Since tokio's AsyncWrite contract says we must not return Ok(N) if we haven't written N of the *user's* buffer...
+                                    // Actually, if we return `split_at`, the caller will call poll_write again with `&buf[n..]`.
+                                    // So we shouldn't buffer the remainder internally! We just pass through after `split_at`.
+                                    // Wait, if we return `split_at`, the caller drives the rest. We just need to delay the *next* write!
+                                    // But this means we can't implement the exact microsecond delay *between* this write and next inside `poll_write` without returning Async.
+                                    // The simplest is: Write first part. Then return Ok(n).
+                                    // Next time poll_write is called, we want to Delay, then Write.
                                 }
-                                Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
-                                Poll::Pending => {
-                                    this.state = WriteState::Passthrough;
-                                    Poll::Pending
-                                }
+                                Poll::Ready(Ok(n))
+                            }
+                            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
+                            Poll::Pending => {
+                                this.state = WriteState::Passthrough;
+                                Poll::Pending
                             }
                         }
-                        DesyncStrategy::Disorder => {
-                            // Too complex for this simple fix, just passthrough
-                            let res = Pin::new(&mut this.inner).poll_write(cx, buf);
-                            this.state = WriteState::Passthrough;
-                            res
-                        }
                     }
-                }
-
-                WriteState::SendFirst { .. } => {
-                    this.state = WriteState::Passthrough;
-                    Poll::Pending
-                }
-
-                WriteState::Delaying { sleep, .. } => {
-                    match sleep.as_mut().poll(cx) {
-                        Poll::Ready(_) => {
-                            // Delay over, now we can pass through the current buffer
-                            this.writes_remaining = this.writes_remaining.saturating_sub(1);
-                            this.state = WriteState::Passthrough; // From now on, just write
-                            Pin::new(&mut this.inner).poll_write(cx, buf)
-                        }
-                        Poll::Pending => {
-                            this.state = state; // Restore state
-                            Poll::Pending
-                        }
+                    DesyncStrategy::Disorder => {
+                        // Too complex for this simple fix, just passthrough
+                        let res = Pin::new(&mut this.inner).poll_write(cx, buf);
+                        this.state = WriteState::Passthrough;
+                        res
                     }
-                }
-
-                WriteState::SendSecond { .. } => {
-                     this.state = WriteState::Passthrough;
-                     Poll::Pending
                 }
             }
+
+            WriteState::SendFirst { .. } => {
+                this.state = WriteState::Passthrough;
+                Poll::Pending
+            }
+
+            WriteState::Delaying { sleep, .. } => {
+                match sleep.as_mut().poll(cx) {
+                    Poll::Ready(_) => {
+                        // Delay over, now we can pass through the current buffer
+                        this.writes_remaining = this.writes_remaining.saturating_sub(1);
+                        this.state = WriteState::Passthrough; // From now on, just write
+                        Pin::new(&mut this.inner).poll_write(cx, buf)
+                    }
+                    Poll::Pending => {
+                        this.state = state; // Restore state
+                        Poll::Pending
+                    }
+                }
+            }
+
+            WriteState::SendSecond { .. } => {
+                this.state = WriteState::Passthrough;
+                Poll::Pending
+            }
+        }
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {

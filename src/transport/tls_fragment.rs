@@ -12,14 +12,15 @@
 
 use crate::config::TlsFragmentSettings;
 use crate::error::Result;
-use crate::transport::BoxedStream;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityStream, TrinityTransport};
+use bytes::{Buf, BufMut, BytesMut};
 use rand::Rng;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use tokio::io::{self, AsyncRead, AsyncWrite, ReadBuf};
-use tracing::debug;
+use tracing::{debug, warn};
 
 // ============================================================================
 // Constants
@@ -44,20 +45,94 @@ const MAX_DELAY_US: u64 = 1500;
 
 /// Wrap a stream so the first write (ClientHello) is fragmented for DPI evasion.
 pub async fn wrap_tls_fragment_client(
-    stream: BoxedStream,
+    stream: BoxedTrinityTransport,
     settings: &TlsFragmentSettings,
-) -> Result<BoxedStream> {
-    Ok(Box::new(FragmentStream::new(stream, settings.clone())))
+) -> Result<BoxedTrinityTransport> {
+    Ok(Box::new(FragmentationAdapter::new(stream, settings.clone())))
+}
+
+/// Overwrite the SNI field in the ClientHello buffer.
+pub fn apply_sni_spoof(data: &mut [u8], sni: &str) -> Result<()> {
+    if data.len() < 5 || data[0] != 0x16 {
+        return Err(anyhow::anyhow!("Not a TLS Handshake record"));
+    }
+
+    let mut pos = 5; // Skip record header
+    if data.len() < pos + 4 { return Ok(()); }
+    let handshake_type = data[pos];
+    if handshake_type != 0x01 { return Ok(()); } // Not ClientHello
+    pos += 4; // Skip Handshake header
+
+    if data.len() < pos + 2 { return Ok(()); }
+    pos += 2; // Skip Version
+    pos += 32; // Skip Random
+
+    if data.len() < pos + 1 { return Ok(()); }
+    let session_id_len = data[pos] as usize;
+    pos += 1 + session_id_len;
+
+    if data.len() < pos + 2 { return Ok(()); }
+    let cipher_suites_len = u16::from_be_bytes([data[pos], data[pos+1]]) as usize;
+    pos += 2 + cipher_suites_len;
+
+    if data.len() < pos + 1 { return Ok(()); }
+    let compression_methods_len = data[pos] as usize;
+    pos += 1 + compression_methods_len;
+
+    if data.len() < pos + 2 { return Ok(()); }
+    let extensions_len = u16::from_be_bytes([data[pos], data[pos+1]]) as usize;
+    pos += 2;
+    let extensions_end = pos + extensions_len;
+
+    while pos + 4 <= extensions_end && pos + 4 <= data.len() {
+        let ext_type = u16::from_be_bytes([data[pos], data[pos+1]]);
+        let ext_len = u16::from_be_bytes([data[pos+2], data[pos+3]]) as usize;
+        pos += 4;
+
+        if ext_type == 0x0000 { // SNI
+            if pos + ext_len <= data.len() {
+                // We assume there is only one SNI entry and it is a hostname.
+                // This is a simplified implementation that overwrites if same length or smaller.
+                // For a production stealth tool, we'd need to re-serialize the whole ClientHello.
+                let mut sni_pos = pos + 2; // Skip Server Name List Length
+                if sni_pos + 3 <= data.len() {
+                    let name_type = data[sni_pos];
+                    let name_len = u16::from_be_bytes([data[sni_pos+1], data[sni_pos+2]]) as usize;
+                    sni_pos += 3;
+                    if name_type == 0x00 && sni_pos + name_len <= data.len() {
+                        let new_sni = sni.as_bytes();
+                        if new_sni.len() == name_len {
+                            data[sni_pos..sni_pos+name_len].copy_from_slice(new_sni);
+                            debug!("TLS Fragment: Spoofed SNI to {}", sni);
+                        } else {
+                            warn!("TLS Fragment: SNI length mismatch, cannot spoof in-place");
+                        }
+                    }
+                }
+            }
+            break;
+        }
+        pos += ext_len;
+    }
+
+    Ok(())
 }
 
 // ============================================================================
-// FragmentStream — Stateful Async Wrapper
+// FragmentationAdapter — Stateful Async Wrapper
 // ============================================================================
 
-pub struct FragmentStream {
-    inner: BoxedStream,
+pub struct FragmentationAdapter {
+    inner: BoxedTrinityTransport,
     settings: TlsFragmentSettings,
     state: FragmentState,
+    fragment_mode: FragmentMode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FragmentMode {
+    ThreeStageRandom,
+    OneByteDpi,
 }
 
 pub enum FragmentState {
@@ -68,11 +143,11 @@ pub enum FragmentState {
     /// We have buffered the full ClientHello and are now writing fragment
     /// `current_frag` out of `fragments`. Between fragments we sleep.
     Writing {
-        /// The 3 fragment byte ranges (start, end) into `data`.
+        /// The fragment byte ranges (start, end) into `data`.
         fragments: Vec<(usize, usize)>,
         /// The buffered ClientHello bytes.
-        data: Vec<u8>,
-        /// Index of the fragment we are writing next (0..3).
+        data: BytesMut,
+        /// Index of the fragment we are writing next.
         current_frag: usize,
         /// Total bytes the caller gave us (returned in Ready once all done).
         caller_len: usize,
@@ -84,13 +159,24 @@ pub enum FragmentState {
     Passthrough,
 }
 
-impl FragmentStream {
-    pub fn new(inner: BoxedStream, settings: TlsFragmentSettings) -> Self {
+impl FragmentationAdapter {
+    pub fn new(inner: BoxedTrinityTransport, settings: TlsFragmentSettings) -> Self {
         Self {
             inner,
             settings,
             state: FragmentState::Initial,
+            fragment_mode: FragmentMode::ThreeStageRandom, // Default
         }
+    }
+
+    pub fn with_mode(mut self, mode: FragmentMode) -> Self {
+        self.fragment_mode = mode;
+        self
+    }
+
+    pub fn apply_split(&mut self) -> Result<()> {
+        self.fragment_mode = FragmentMode::OneByteDpi;
+        Ok(())
     }
 
     /// Compute fragment boundaries for a ClientHello of `total_len` bytes.
@@ -126,7 +212,7 @@ impl FragmentStream {
     }
 }
 
-impl AsyncRead for FragmentStream {
+impl AsyncRead for FragmentationAdapter {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -136,7 +222,7 @@ impl AsyncRead for FragmentStream {
     }
 }
 
-impl AsyncWrite for FragmentStream {
+impl AsyncWrite for FragmentationAdapter {
     fn poll_write(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -156,9 +242,24 @@ impl AsyncWrite for FragmentStream {
 
                 // ── Initial: buffer the full ClientHello and split ──
                 FragmentState::Initial => {
-                    let data = buf.to_vec();
+                    let mut data = BytesMut::from(buf);
                     let caller_len = data.len();
-                    let fragments = Self::compute_fragments(caller_len);
+
+                    // Apply SNI spoof if configured
+                    if let Some(sni) = &self.settings.sni_spoof {
+                        let _ = apply_sni_spoof(&mut data, sni);
+                    }
+
+                    let fragments = match self.fragment_mode {
+                        FragmentMode::ThreeStageRandom => Self::compute_fragments(caller_len),
+                        FragmentMode::OneByteDpi => {
+                            if caller_len > 1 {
+                                vec![(0, 1), (1, caller_len)]
+                            } else {
+                                vec![(0, caller_len)]
+                            }
+                        }
+                    };
 
                     debug!(
                         "TLS Fragment: ClientHello {} bytes → {} fragments (first {} bytes)",
@@ -281,6 +382,28 @@ impl AsyncWrite for FragmentStream {
     }
 }
 
+impl TrinityTransport for FragmentationAdapter {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        self.inner.switch_carrier(new_carrier)
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        self.apply_split().map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+    }
+
+    fn handover(self, new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Ok(Self {
+            inner: new_tal,
+            settings: self.settings,
+            state: self.state,
+            fragment_mode: self.fragment_mode,
+        })
+    }
+}
+
 // ============================================================================
 // Standalone Fragmenter (for direct use outside of stream wrappers)
 // ============================================================================
@@ -394,7 +517,7 @@ mod tests {
     #[test]
     fn test_compute_fragments_splits_into_3() {
         // A realistic ClientHello is ~300+ bytes.
-        let frags = FragmentStream::compute_fragments(300);
+        let frags = FragmentationAdapter::compute_fragments(300);
         assert_eq!(frags.len(), 3, "Expected exactly 3 fragments");
 
         // First fragment must be exactly 5 bytes (TLS record header).
@@ -410,14 +533,14 @@ mod tests {
     #[test]
     fn test_compute_fragments_tiny_packet() {
         // A packet smaller than FIRST_FRAGMENT_SIZE should be a single fragment.
-        let frags = FragmentStream::compute_fragments(3);
+        let frags = FragmentationAdapter::compute_fragments(3);
         assert_eq!(frags.len(), 1);
         assert_eq!(frags[0], (0, 3));
     }
 
     #[test]
     fn test_compute_fragments_exactly_5_bytes() {
-        let frags = FragmentStream::compute_fragments(5);
+        let frags = FragmentationAdapter::compute_fragments(5);
         assert_eq!(frags.len(), 1);
         assert_eq!(frags[0], (0, 5));
     }
@@ -458,7 +581,7 @@ mod tests {
     #[test]
     fn test_compute_fragments_deterministic_coverage() {
         for total in [10, 50, 100, 200, 512, 1024] {
-            let frags = FragmentStream::compute_fragments(total);
+            let frags = FragmentationAdapter::compute_fragments(total);
             // First fragment always exactly 5.
             assert_eq!(frags[0].1, 5);
             // Full coverage.

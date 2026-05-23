@@ -24,21 +24,21 @@
 //! - Randomized polling interval (300–800ms) to evade volume anomalies
 
 use bytes::BytesMut;
-use rand::Rng;
-use sha2::{Digest, Sha256};
+use futures::SinkExt;
 use hmac::{Hmac, Mac};
+use rand::Rng;
 use reqwest::Client;
+use sha2::{Digest, Sha256};
 use std::io;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 use tokio_util::sync::PollSender;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
-use futures::SinkExt;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -125,8 +125,7 @@ impl SigV4Signer {
 
     /// Compute HMAC-SHA256.
     fn hmac_sha256(key: &[u8], data: &[u8]) -> Vec<u8> {
-        let mut mac = HmacSha256::new_from_slice(key)
-            .expect("HMAC key length is always valid");
+        let mut mac = HmacSha256::new_from_slice(key).expect("HMAC key length is always valid");
         mac.update(data);
         mac.finalize().into_bytes().to_vec()
     }
@@ -156,9 +155,9 @@ impl SigV4Signer {
         // Format as ISO 8601: 20260419T193500Z
         let amz_date = format!(
             "{:04}{:02}{:02}T{:02}{:02}{:02}Z",
-            1970 + secs / 31556952, // approximate year
+            1970 + secs / 31556952,          // approximate year
             (secs % 31556952) / 2629746 + 1, // approximate month
-            (secs % 2629746) / 86400 + 1, // approximate day
+            (secs % 2629746) / 86400 + 1,    // approximate day
             (secs % 86400) / 3600,
             (secs % 3600) / 60,
             secs % 60
@@ -176,7 +175,10 @@ impl SigV4Signer {
             method, path, canonical_headers, signed_headers, payload_hash
         );
 
-        let credential_scope = format!("{}/{}/{}/aws4_request", date_stamp, self.region, self.service);
+        let credential_scope = format!(
+            "{}/{}/{}/aws4_request",
+            date_stamp, self.region, self.service
+        );
         let string_to_sign = format!(
             "AWS4-HMAC-SHA256\n{}\n{}\n{}",
             amz_date,
@@ -247,7 +249,9 @@ impl GhostBucket {
         let object_key = disguised_object_key(&self.session_id, sequence, "outbound");
         let path = format!("/{}/{}", self.config.bucket, object_key);
         let url = format!("{}{}", self.config.endpoint, path);
-        let host = self.config.endpoint
+        let host = self
+            .config
+            .endpoint
             .trim_start_matches("https://")
             .trim_start_matches("http://")
             .split('/')
@@ -256,9 +260,11 @@ impl GhostBucket {
 
         let payload_hash = hex::encode(Sha256::digest(data));
         let (auth, amz_date, content_sha) =
-            self.signer.sign("PUT", &path, host, &payload_hash, SystemTime::now());
+            self.signer
+                .sign("PUT", &path, host, &payload_hash, SystemTime::now());
 
-        let resp = self.client
+        let resp = self
+            .client
             .put(&url)
             .header("Authorization", auth)
             .header("x-amz-date", amz_date)
@@ -270,10 +276,10 @@ impl GhostBucket {
             .map_err(|e| io::Error::new(io::ErrorKind::ConnectionAborted, e.to_string()))?;
 
         if !resp.status().is_success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("S3 PUT failed: {}", resp.status()),
-            ));
+            return Err(io::Error::other(format!(
+                "S3 PUT failed: {}",
+                resp.status()
+            )));
         }
 
         debug!("GhostBucket: PUT blob seq={} key={}", sequence, object_key);
@@ -285,7 +291,9 @@ impl GhostBucket {
         let object_key = disguised_object_key(&self.session_id, sequence, "inbound");
         let path = format!("/{}/{}", self.config.bucket, object_key);
         let url = format!("{}{}", self.config.endpoint, path);
-        let host = self.config.endpoint
+        let host = self
+            .config
+            .endpoint
             .trim_start_matches("https://")
             .trim_start_matches("http://")
             .split('/')
@@ -294,9 +302,11 @@ impl GhostBucket {
 
         let payload_hash = hex::encode(Sha256::digest(b""));
         let (auth, amz_date, content_sha) =
-            self.signer.sign("GET", &path, host, &payload_hash, SystemTime::now());
+            self.signer
+                .sign("GET", &path, host, &payload_hash, SystemTime::now());
 
-        let resp = self.client
+        let resp = self
+            .client
             .get(&url)
             .header("Authorization", auth)
             .header("x-amz-date", amz_date)
@@ -310,10 +320,10 @@ impl GhostBucket {
         }
 
         if !resp.status().is_success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("S3 GET failed: {}", resp.status()),
-            ));
+            return Err(io::Error::other(format!(
+                "S3 GET failed: {}",
+                resp.status()
+            )));
         }
 
         let body = resp
@@ -383,13 +393,12 @@ impl SlidingWindowBuffer {
         }
 
         // If window is full, drop the oldest (it was already uploaded or lost).
-        if self.pending.len() >= self.max_window {
-            if let Some((old_seq, _)) = self.pending.pop_front() {
-                if let Some(ref dir) = self.cache_dir {
-                    let path = dir.join(format!("blob_{:08}.bin", old_seq));
-                    let _ = std::fs::remove_file(path);
-                }
-            }
+        if self.pending.len() >= self.max_window
+            && let Some((old_seq, _)) = self.pending.pop_front()
+            && let Some(ref dir) = self.cache_dir
+        {
+            let path = dir.join(format!("blob_{:08}.bin", old_seq));
+            let _ = std::fs::remove_file(path);
         }
 
         self.pending.push_back((seq, data));
@@ -443,10 +452,7 @@ impl GhostBucketStream {
         // Upload task
         let upload_bucket = bucket.clone();
         tokio::spawn(async move {
-            let mut window = SlidingWindowBuffer::new(
-                config.window_size,
-                config.cache_dir.clone(),
-            );
+            let mut window = SlidingWindowBuffer::new(config.window_size, config.cache_dir.clone());
             while let Some(data) = write_rx.recv().await {
                 // Fragment into BLOB_SIZE chunks.
                 for chunk in data.chunks(BLOB_SIZE) {

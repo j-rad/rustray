@@ -2,12 +2,12 @@
 use crate::app::reverse::ReverseManager;
 use crate::config::ReversePortalSettings;
 use crate::error::Result;
-use crate::transport::BoxedStream;
+use crate::protocols::flow_trait::BoxedTrinityTransport;
 use std::sync::Arc;
 
 pub async fn listen_stream_tcp(
     reverse_manager: Arc<ReverseManager>,
-    client_stream: BoxedStream,
+    client_stream: BoxedTrinityTransport,
     _settings: ReversePortalSettings,
     tag: &str,
     _source: String,

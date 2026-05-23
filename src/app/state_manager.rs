@@ -287,18 +287,19 @@ impl StateManager {
                 match tokio::fs::metadata(&self.config_path).await {
                     Ok(metadata) => {
                         if let Ok(modified) = metadata.modified()
-                            && modified > last_modified {
-                                info!("Config file changed, reloading...");
-                                match self.reload_config().await {
-                                    Ok(_) => {
-                                        last_modified = modified;
-                                        info!("Config reloaded successfully");
-                                    }
-                                    Err(e) => {
-                                        error!("Failed to reload config: {}", e);
-                                    }
+                            && modified > last_modified
+                        {
+                            info!("Config file changed, reloading...");
+                            match self.reload_config().await {
+                                Ok(_) => {
+                                    last_modified = modified;
+                                    info!("Config reloaded successfully");
+                                }
+                                Err(e) => {
+                                    error!("Failed to reload config: {}", e);
                                 }
                             }
+                        }
                     }
                     Err(e) => {
                         warn!("Failed to check config file: {}", e);

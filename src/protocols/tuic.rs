@@ -16,8 +16,10 @@ use crate::app::stats::StatsManager;
 use crate::config::{LevelPolicy, TuicOutboundSettings, TuicSettings};
 use crate::error::Result;
 use crate::outbounds::Outbound;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
+use crate::transport::BoxedStream;
 use crate::router::Router;
-use crate::transport::{BoxedStream, Packet};
+use crate::transport::{Packet};
 use async_trait::async_trait;
 use bytes::{BufMut, BytesMut};
 use lru::LruCache;
@@ -37,8 +39,8 @@ use uuid::Uuid;
 
 // --- Constants ---
 
-/// ALPN protocol identifier for TUIC v5
-pub const ALPN_TUIC_V5: &[u8] = b"tuic-v5";
+/// ALPN protocol identifier for TUIC v5 (Masqueraded as HTTP/3)
+pub const ALPN_TUIC_V5: &[u8] = b"h3";
 
 /// TUIC protocol version
 const TUIC_VERSION: u8 = 5;
@@ -548,7 +550,7 @@ impl TuicInbound {
         &self,
         router: Arc<Router>,
         state: Arc<StatsManager>,
-        mut stream: BoxedStream,
+        mut stream: BoxedTrinityTransport,
         source: String,
     ) -> Result<()> {
         debug!("TUIC: Handling new inbound stream");
@@ -623,7 +625,7 @@ impl TuicInbound {
 pub async fn listen_stream(
     router: Arc<Router>,
     state: Arc<StatsManager>,
-    stream: BoxedStream,
+    stream: BoxedTrinityTransport,
     settings: TuicSettings,
     source: String,
 ) -> Result<()> {
@@ -634,7 +636,7 @@ pub async fn listen_stream(
 /// Handle TCP Connect command
 async fn handle_connect(
     router: Arc<Router>,
-    mut stream: BoxedStream,
+    mut stream: BoxedTrinityTransport,
     policy: Arc<LevelPolicy>,
     source: String,
 ) -> Result<()> {
@@ -652,7 +654,7 @@ async fn handle_connect(
 }
 
 /// Handle UDP relay command
-async fn handle_udp_relay(router: Arc<Router>, mut stream: BoxedStream) -> Result<()> {
+async fn handle_udp_relay(router: Arc<Router>, mut stream: BoxedTrinityTransport) -> Result<()> {
     debug!("TUIC: Starting UDP relay loop");
 
     loop {
@@ -696,7 +698,7 @@ async fn handle_udp_relay(router: Arc<Router>, mut stream: BoxedStream) -> Resul
 }
 
 /// Handle heartbeat command
-async fn handle_heartbeat(mut stream: BoxedStream) -> Result<()> {
+async fn handle_heartbeat(mut stream: BoxedTrinityTransport) -> Result<()> {
     debug!("TUIC: Heartbeat received");
 
     // Send heartbeat response (just echo back a heartbeat header)
@@ -761,13 +763,17 @@ impl TuicClientConnection {
 /// Implements the `Outbound` trait to connect through a TUIC proxy server
 pub struct TuicOutbound {
     settings: Arc<TuicOutboundSettings>,
+    stream_settings: Option<crate::config::StreamSettings>,
     /// Parsed UUID for authentication
     #[allow(dead_code)]
     token: Uuid,
 }
 
 impl TuicOutbound {
-    pub fn new(settings: TuicOutboundSettings) -> Self {
+    pub fn new(
+        settings: TuicOutboundSettings,
+        stream_settings: Option<crate::config::StreamSettings>,
+    ) -> Self {
         let token = Uuid::parse_str(&settings.uuid).unwrap_or_else(|_| {
             warn!("TUIC: Invalid UUID in settings, using nil UUID");
             Uuid::nil()
@@ -775,6 +781,7 @@ impl TuicOutbound {
 
         Self {
             settings: Arc::new(settings),
+            stream_settings,
             token,
         }
     }
@@ -787,11 +794,12 @@ impl TuicOutbound {
         {
             let mut pool = CONNECTION_POOL.lock().await;
             if let Some(conn) = pool.get(&remote_addr)
-                && !conn.is_closed().await {
-                    conn.update_activity().await;
-                    debug!("TUIC: Reusing pooled connection to {}", remote_addr);
-                    return Ok(conn.clone());
-                }
+                && !conn.is_closed().await
+            {
+                conn.update_activity().await;
+                debug!("TUIC: Reusing pooled connection to {}", remote_addr);
+                return Ok(conn.clone());
+            }
         }
 
         // Create new connection
@@ -822,10 +830,11 @@ impl TuicOutbound {
     /// Build ALPN list from settings
     fn get_alpn(&self) -> Vec<&[u8]> {
         if let Some(alpns) = &self.settings.alpn
-            && !alpns.is_empty() {
-                // Convert to static slice references
-                return vec![ALPN_TUIC_V5];
-            }
+            && !alpns.is_empty()
+        {
+            // Convert to static slice references
+            return vec![ALPN_TUIC_V5];
+        }
         vec![ALPN_TUIC_V5]
     }
 }
@@ -874,8 +883,15 @@ impl Outbound for TuicOutbound {
 
         // Establish QUIC connection
         let mut quic_conn =
-            crate::transport::quic::connect(remote_addr, &conn.server_name, &self.get_alpn(), None)
-                .await?;
+            crate::transport::quic::connect(
+                remote_addr,
+                &conn.server_name,
+                &self.get_alpn(),
+                None,
+                self.settings.pqc.as_ref(),
+                self.stream_settings.as_ref().and_then(|s| s.finalmask.as_ref()).and_then(|fm| fm.quic_params.clone()),
+            )
+            .await?;
 
         // Open a new stream for this connection
         let mut out_stream = quic_conn.open_stream().await?;
@@ -915,9 +931,15 @@ impl Outbound for TuicOutbound {
         let remote_addr = conn.remote_addr;
 
         // Establish QUIC connection
-        let mut quic_conn =
-            crate::transport::quic::connect(remote_addr, &conn.server_name, &self.get_alpn(), None)
-                .await?;
+        let mut quic_conn = crate::transport::quic::connect(
+            remote_addr,
+            &conn.server_name,
+            &self.get_alpn(),
+            None,
+            self.settings.pqc.as_ref(),
+            None,
+        )
+        .await?;
 
         // Open stream for UDP relay
         let mut out_stream = quic_conn.open_stream().await?;

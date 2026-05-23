@@ -1,17 +1,18 @@
 // src/api/mod.rs
 
-pub mod server;
-pub mod handler;
-pub mod stats;
-pub mod signaling;
-pub mod users;
-pub mod auth_middleware;
 pub mod audit_middleware;
+pub mod auth_middleware;
 pub mod diagnostics_api;
-pub mod speedtest_api;
-pub mod headless;
 pub mod embedded_assets;
+pub mod handler;
 pub mod handlers;
+pub mod headless;
+pub mod rustray_control;
+pub mod server;
+pub mod signaling;
+pub mod speedtest_api;
+pub mod stats;
+pub mod users;
 
 pub mod rustray {
     pub mod core {
@@ -91,6 +92,12 @@ pub mod rustray {
         }
         pub mod warp {
             tonic::include_proto!("rustray.proxy.warp");
+        }
+    }
+
+    pub mod api {
+        pub mod control {
+            tonic::include_proto!("rustray.api.control");
         }
     }
 }

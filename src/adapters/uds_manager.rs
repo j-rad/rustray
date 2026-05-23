@@ -25,21 +25,23 @@ impl UdsManager {
 
         // Self-healing: Pre-flight check for stale socket
         if path.exists()
-            && let Ok(_metadata) = fs::metadata(path) {
-                // If it's a socket or even a regular file that shouldn't be here, try to remove it
-                debug!("Stale socket found at {:?}, unlinking...", path);
-                if let Err(e) = fs::remove_file(path) {
-                    warn!("Failed to unlink stale socket at {:?}: {}", path, e);
-                } else {
-                    info!("Successfully unlinked stale socket at {:?}", path);
-                }
+            && let Ok(_metadata) = fs::metadata(path)
+        {
+            // If it's a socket or even a regular file that shouldn't be here, try to remove it
+            debug!("Stale socket found at {:?}, unlinking...", path);
+            if let Err(e) = fs::remove_file(path) {
+                warn!("Failed to unlink stale socket at {:?}: {}", path, e);
+            } else {
+                info!("Successfully unlinked stale socket at {:?}", path);
             }
+        }
 
         // Ensure parent directory exists
         if let Some(parent) = path.parent()
-            && !parent.exists() {
-                fs::create_dir_all(parent)?;
-            }
+            && !parent.exists()
+        {
+            fs::create_dir_all(parent)?;
+        }
 
         let listener = UnixListener::bind(path)?;
         info!("UDS Listener successfully bound to {:?}", path);

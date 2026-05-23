@@ -419,20 +419,21 @@ impl KcpSession {
         }
 
         if self.stream
-            && let Some(last) = self.snd_queue.back_mut() {
-                let old_len = last.data.len();
-                if old_len < self.mss {
-                    let capacity = self.mss - old_len;
-                    let extend = std::cmp::min(len, capacity);
-                    let mut new_data = BytesMut::with_capacity(old_len + extend);
-                    new_data.extend_from_slice(&last.data);
-                    new_data.extend_from_slice(&buf[0..extend]);
-                    last.data = new_data.freeze();
-                    last.header.len = (old_len + extend) as u32;
-                    last.header.frg = 0;
-                    offset += extend;
-                }
+            && let Some(last) = self.snd_queue.back_mut()
+        {
+            let old_len = last.data.len();
+            if old_len < self.mss {
+                let capacity = self.mss - old_len;
+                let extend = std::cmp::min(len, capacity);
+                let mut new_data = BytesMut::with_capacity(old_len + extend);
+                new_data.extend_from_slice(&last.data);
+                new_data.extend_from_slice(&buf[0..extend]);
+                last.data = new_data.freeze();
+                last.header.len = (old_len + extend) as u32;
+                last.header.frg = 0;
+                offset += extend;
             }
+        }
 
         if offset >= len {
             return 0;
@@ -770,6 +771,21 @@ impl AsyncWrite for PaqetStream {
     }
     fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Poll::Ready(Ok(()))
+    }
+}
+
+impl crate::protocols::flow_trait::TrinityTransport for PaqetStream {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, _new_carrier: crate::protocols::flow_trait::BoxedTrinityTransport) -> io::Result<()> {
+        Err(io::Error::new(io::ErrorKind::Unsupported, "PaqetStream: hot-swap not supported"))
+    }
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+    fn handover(self, _new_tal: crate::protocols::flow_trait::BoxedTrinityTransport) -> Result<Self> {
+        Err(anyhow::anyhow!("PaqetStream: handover not implemented"))
     }
 }
 

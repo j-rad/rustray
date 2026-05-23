@@ -213,19 +213,29 @@ impl HandlerService for HandlerServiceImpl {
 
         // Handle operation
         if operation.r#type.contains("AddUserOperation") {
-            let op = crate::api::rustray::app::proxyman::command::AddUserOperation::decode(&*operation.value)
-                .map_err(|e| Status::invalid_argument(format!("Failed to decode AddUserOperation: {}", e)))?;
-            
-            let user = op.user.ok_or_else(|| Status::invalid_argument("AddUserOperation missing user"))?;
+            let op = crate::api::rustray::app::proxyman::command::AddUserOperation::decode(
+                &*operation.value,
+            )
+            .map_err(|e| {
+                Status::invalid_argument(format!("Failed to decode AddUserOperation: {}", e))
+            })?;
+
+            let user = op
+                .user
+                .ok_or_else(|| Status::invalid_argument("AddUserOperation missing user"))?;
             let email = user.email.clone();
             let level = Some(user.level);
-            let account = user.account.ok_or_else(|| Status::invalid_argument("User missing account"))?;
+            let account = user
+                .account
+                .ok_or_else(|| Status::invalid_argument("User missing account"))?;
 
             match settings {
                 InboundSettings::Vless(cfg) => {
                     // Account type: rustray.proxy.vless.Account
                     let acc = crate::api::rustray::proxy::vless::Account::decode(&*account.value)
-                        .map_err(|e| Status::invalid_argument(format!("Failed to decode VLess account: {}", e)))?;
+                        .map_err(|e| {
+                        Status::invalid_argument(format!("Failed to decode VLess account: {}", e))
+                    })?;
                     cfg.clients.push(VlessUser {
                         id: acc.id,
                         flow: Some(acc.flow),
@@ -236,7 +246,9 @@ impl HandlerService for HandlerServiceImpl {
                 InboundSettings::Vmess(cfg) => {
                     // Account type: rustray.proxy.vmess.Account
                     let acc = crate::api::rustray::proxy::vmess::Account::decode(&*account.value)
-                        .map_err(|e| Status::invalid_argument(format!("Failed to decode VMess account: {}", e)))?;
+                        .map_err(|e| {
+                        Status::invalid_argument(format!("Failed to decode VMess account: {}", e))
+                    })?;
                     cfg.clients.push(VmessUser {
                         id: acc.id,
                         alter_id: Some(acc.alter_id as u16),
@@ -247,7 +259,12 @@ impl HandlerService for HandlerServiceImpl {
                 InboundSettings::Trojan(cfg) => {
                     // Account type: rustray.proxy.trojan.Account
                     let acc = crate::api::rustray::proxy::trojan::Account::decode(&*account.value)
-                        .map_err(|e| Status::invalid_argument(format!("Failed to decode Trojan account: {}", e)))?;
+                        .map_err(|e| {
+                            Status::invalid_argument(format!(
+                                "Failed to decode Trojan account: {}",
+                                e
+                            ))
+                        })?;
                     cfg.clients.push(TrojanUser {
                         password: acc.password,
                         email: Some(email),
@@ -262,20 +279,27 @@ impl HandlerService for HandlerServiceImpl {
                 }
             }
         } else if operation.r#type.contains("RemoveUserOperation") {
-            let op = crate::api::rustray::app::proxyman::command::RemoveUserOperation::decode(&*operation.value)
-                .map_err(|e| Status::invalid_argument(format!("Failed to decode RemoveUserOperation: {}", e)))?;
-            
+            let op = crate::api::rustray::app::proxyman::command::RemoveUserOperation::decode(
+                &*operation.value,
+            )
+            .map_err(|e| {
+                Status::invalid_argument(format!("Failed to decode RemoveUserOperation: {}", e))
+            })?;
+
             let email = op.email;
 
             match settings {
                 InboundSettings::Vless(cfg) => {
-                    cfg.clients.retain(|client| client.email.as_deref() != Some(&email));
+                    cfg.clients
+                        .retain(|client| client.email.as_deref() != Some(&email));
                 }
                 InboundSettings::Vmess(cfg) => {
-                    cfg.clients.retain(|client| client.email.as_deref() != Some(&email));
+                    cfg.clients
+                        .retain(|client| client.email.as_deref() != Some(&email));
                 }
                 InboundSettings::Trojan(cfg) => {
-                    cfg.clients.retain(|client| client.email.as_deref() != Some(&email));
+                    cfg.clients
+                        .retain(|client| client.email.as_deref() != Some(&email));
                 }
                 _ => {
                     return Err(Status::invalid_argument(format!(
@@ -319,9 +343,7 @@ impl HandlerService for HandlerServiceImpl {
         let is_only_tags = req.is_only_tags;
 
         let config = self.stats_manager.config.load();
-        let inbounds = config
-            .inbounds.clone()
-            .unwrap_or_default();
+        let inbounds = config.inbounds.clone().unwrap_or_default();
 
         // Convert internal Inbound to proto InboundHandlerConfig
         let proto_inbounds: Vec<crate::api::rustray::core::InboundHandlerConfig> = inbounds
@@ -381,9 +403,10 @@ impl HandlerService for HandlerServiceImpl {
                 InboundSettings::Vless(cfg) => {
                     for client in &cfg.clients {
                         if let Some(ref filter) = email_filter
-                            && client.email.as_deref() != Some(filter.as_str()) {
-                                continue;
-                            }
+                            && client.email.as_deref() != Some(filter.as_str())
+                        {
+                            continue;
+                        }
                         let account_json = serde_json::to_vec(&client).unwrap_or_default();
                         users.push(crate::api::rustray::common::protocol::User {
                             level: client.level.unwrap_or(0),
@@ -398,9 +421,10 @@ impl HandlerService for HandlerServiceImpl {
                 InboundSettings::Vmess(cfg) => {
                     for client in &cfg.clients {
                         if let Some(ref filter) = email_filter
-                            && client.email.as_deref() != Some(filter.as_str()) {
-                                continue;
-                            }
+                            && client.email.as_deref() != Some(filter.as_str())
+                        {
+                            continue;
+                        }
                         let account_json = serde_json::to_vec(&client).unwrap_or_default();
                         users.push(crate::api::rustray::common::protocol::User {
                             level: client.level.unwrap_or(0),
@@ -415,9 +439,10 @@ impl HandlerService for HandlerServiceImpl {
                 InboundSettings::Trojan(cfg) => {
                     for client in &cfg.clients {
                         if let Some(ref filter) = email_filter
-                            && client.email.as_deref() != Some(filter.as_str()) {
-                                continue;
-                            }
+                            && client.email.as_deref() != Some(filter.as_str())
+                        {
+                            continue;
+                        }
                         let account_json = serde_json::to_vec(&client).unwrap_or_default();
                         users.push(crate::api::rustray::common::protocol::User {
                             level: client.level.unwrap_or(0),
@@ -603,9 +628,7 @@ impl HandlerService for HandlerServiceImpl {
         _request: Request<ListOutboundsRequest>,
     ) -> Result<Response<ListOutboundsResponse>, Status> {
         let config = self.stats_manager.config.load();
-        let outbounds = config
-            .outbounds.clone()
-            .unwrap_or_default();
+        let outbounds = config.outbounds.clone().unwrap_or_default();
 
         let proto_outbounds: Vec<crate::api::rustray::core::OutboundHandlerConfig> = outbounds
             .iter()

@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/../Cargo.toml">
+      <package file="$PROJECT_DIR$/../edgeray-app">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/../edgeray-app/reference-ui-design">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/../edgeray-app/src-tauri">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/../rr-ui">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$">
+        <feature name="default" enabled="true" />
+      </package>
+    </cargoProject>
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="81b4ee22-77e0-4a45-ae5f-b8ba78917c67" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.github/workflows/release.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/workflows/release.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/rustray.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/rustray.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/benches/brutal_pacing_bench.rs" beforeDir="false" afterPath="$PROJECT_DIR$/benches/brutal_pacing_bench.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/benches/dns_codec_bench.rs" beforeDir="false" afterPath="$PROJECT_DIR$/benches/dns_codec_bench.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/benches/ebpf_fragmentation_bench.rs" beforeDir="false" afterPath="$PROJECT_DIR$/benches/ebpf_fragmentation_bench.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/benches/fec_encoding_bench.rs" beforeDir="false" afterPath="$PROJECT_DIR$/benches/fec_encoding_bench.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/benches/ffi_overhead.rs" beforeDir="false" afterPath="$PROJECT_DIR$/benches/ffi_overhead.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/benches/final_payload.rs" beforeDir="false" afterPath="$PROJECT_DIR$/benches/final_payload.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/benches/relay_throughput.rs" beforeDir="false" afterPath="$PROJECT_DIR$/benches/relay_throughput.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/benches/routing_memory_usage.rs" beforeDir="false" afterPath="$PROJECT_DIR$/benches/routing_memory_usage.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/benches/timing_entropy.rs" beforeDir="false" afterPath="$PROJECT_DIR$/benches/timing_entropy.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build.rs" beforeDir="false" afterPath="$PROJECT_DIR$/build.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/proto/stats.proto" beforeDir="false" afterPath="$PROJECT_DIR$/proto/stats.proto" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adapters/uds_manager.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/adapters/uds_manager.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/android/jni.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/android/jni.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/api/auth_middleware.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/api/auth_middleware.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/api/embedded_assets.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/api/embedded_assets.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/api/handler.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/api/handler.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/api/handlers.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/api/handlers.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/api/headless.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/api/headless.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/api/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/api/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/api/server.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/api/server.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/api/stats.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/api/stats.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/api/users.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/api/users.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/assets/updater.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/assets/updater.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/behavior_synth.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/behavior_synth.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/connection_tracker.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/connection_tracker.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/diagnostics.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/diagnostics.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/dns/fakedns.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/dns/fakedns.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/dns/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/dns/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/dns_logger.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/dns_logger.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/logging.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/logging.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/metrics/prober.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/metrics/prober.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/policy/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/policy/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/reverse/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/reverse/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/router/compiler.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/router/compiler.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/router/geo_loader.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/router/geo_loader.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/signaling.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/signaling.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/sniffer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/sniffer.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/state_manager.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/state_manager.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/stats/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/stats/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/tls_forensics.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/tls_forensics.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/config.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/config.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/db/manager.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/db/manager.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/db/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/db/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fec/rs.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/fec/rs.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fec/transport.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/fec/transport.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ffi/desktop.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/ffi/desktop.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ffi/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/ffi/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/inbounds/dokodemo.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/inbounds/dokodemo.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/inbounds/http.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/inbounds/http.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/inbounds/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/inbounds/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/inbounds/nginx_decoy.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/inbounds/nginx_decoy.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/inbounds/reverse_portal.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/inbounds/reverse_portal.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/inbounds/socks.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/inbounds/socks.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/jobs/billing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/jobs/billing.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/jobs/traffic_reset.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/jobs/traffic_reset.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kernel/ebpf_loader.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/kernel/ebpf_loader.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kernel/ebpf_program.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/kernel/ebpf_program.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kernel/ghoststream.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/kernel/ghoststream.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kernel/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/kernel/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/orchestrator/manager.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/orchestrator/manager.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/orchestrator/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/orchestrator/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/orchestrator/probe.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/orchestrator/probe.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/outbounds/freedom.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/outbounds/freedom.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/outbounds/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/outbounds/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/p2p/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/p2p/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/p2p/relay.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/p2p/relay.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/panic_handler.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/panic_handler.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/plugin/sip003.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/plugin/sip003.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/protocols/flow.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/protocols/flow.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/protocols/flow_j.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/protocols/flow_j.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/protocols/flow_trait.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/protocols/flow_trait.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/protocols/http_proxy.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/protocols/http_proxy.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/protocols/hysteria2.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/protocols/hysteria2.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/protocols/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/protocols/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/protocols/naive.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/protocols/naive.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/protocols/shadowsocks_2022.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/protocols/shadowsocks_2022.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/protocols/shadowsocks_stream.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/protocols/shadowsocks_stream.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/protocols/stealth.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/protocols/stealth.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/protocols/trojan.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/protocols/trojan.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/protocols/tuic.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/protocols/tuic.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/protocols/vless.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/protocols/vless.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/protocols/vless_vision.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/protocols/vless_vision.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/protocols/vmess.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/protocols/vmess.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/protocols/wireguard.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/protocols/wireguard.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/router.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/router.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/scanner/beacon_scanner.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/scanner/beacon_scanner.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/scanner/dns.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/scanner/dns.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/scanner/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/scanner/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/speedtest.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/speedtest.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/beacon_scanner.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/beacon_scanner.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/db_mimic.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/db_mimic.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/desync.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/desync.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/dns_codec.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/dns_codec.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/dns_tunnel.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/dns_tunnel.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/flow_j_brutal.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/flow_j_brutal.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/flow_j_cdn.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/flow_j_cdn.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/flow_j_fec.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/flow_j_fec.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/flow_j_mqtt.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/flow_j_mqtt.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/flow_j_multiport.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/flow_j_multiport.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/flow_j_reality.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/flow_j_reality.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/ghost_bucket.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/ghost_bucket.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/grpc.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/grpc.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/jitter.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/jitter.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/mqtt_parasite.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/mqtt_parasite.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/mux.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/mux.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/paqet.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/paqet.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/pqc.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/pqc.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/prefix_stream.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/prefix_stream.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/quic.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/quic.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/reality.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/reality.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/s3_bridge.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/s3_bridge.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/s3_codec.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/s3_codec.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/slipstream.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/slipstream.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/speed_tester.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/speed_tester.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/splice.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/splice.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/splithttp.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/splithttp.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/stats.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/stats.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/tls.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/tls.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/tls_camouflage.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/tls_camouflage.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/tls_fragment.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/tls_fragment.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/utls.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/utls.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/transport/websocket.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/transport/websocket.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/tun/tun_device.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/tun/tun_device.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/types/migration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/migration.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/types/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/admin_api_test.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/admin_api_test.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/asset_hot_reload.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/asset_hot_reload.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/brutal_quic_test.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/brutal_quic_test.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/desync_http_tls_test.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/desync_http_tls_test.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/dns_tunnel_test.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/dns_tunnel_test.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/ebpf_fragmentation_test.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/ebpf_fragmentation_test.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/fec_recovery_test.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/fec_recovery_test.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/ffi_stealth_test.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/ffi_stealth_test.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/ffi_unification_test.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/ffi_unification_test.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/fingerprint_audit.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/fingerprint_audit.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/headless_api_test.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/headless_api_test.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/integration.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/mesh_discovery_test.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/mesh_discovery_test.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/orchestrator_test.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/orchestrator_test.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/p2p_relay_test.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/p2p_relay_test.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/production_ui_test.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/production_ui_test.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/scanner_accuracy.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/scanner_accuracy.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/sip003_env_test.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/sip003_env_test.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/udp_fallback_test.rs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/udp_fallback_test.rs" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;FaezBarghasa&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;git@github.com:j-rad/rustray.git&quot;,
+    &quot;accountId&quot;: &quot;b7200b0f-9f7f-4abd-a13b-34d87c16099d&quot;
+  }
+}</component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="jRlsh6HC" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 6
+}</component>
+  <component name="ProjectId" id="3A6XCBqqzZHSnhYoTzxAwUPvBVd" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
+    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  },
+  &quot;keyToStringList&quot;: {
+    &quot;stardust.markdown.MarkdownSplitEditorSuppressor:keyList&quot;: []
+  }
+}</component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="81b4ee22-77e0-4a45-ae5f-b8ba78917c67" name="Changes" comment="" />
+      <created>1771913864663</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1771913864663</updated>
+      <workItem from="1771913868681" duration="30000" />
+      <workItem from="1774972708297" duration="1122000" />
+      <workItem from="1776841104939" duration="381000" />
+      <workItem from="1776849961710" duration="18000" />
+      <workItem from="1777275152888" duration="14000" />
+      <workItem from="1779535490143" duration="651000" />
+      <workItem from="1779536148434" duration="169000" />
+      <workItem from="1779536328125" duration="351000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>

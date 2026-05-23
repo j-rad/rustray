@@ -15,9 +15,9 @@
 //! 3. Compare with a deterministic (non-jittered) baseline
 //! 4. Verify TCP window shrink operation latency
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use rustray::transport::jitter::{ipt_shannon_entropy, JitterConfig};
+use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
 use rand::Rng;
+use rustray::transport::jitter::{JitterConfig, ipt_shannon_entropy};
 
 /// Generate IPT samples matching the Aparat video streaming profile.
 /// Returns a vector of inter-packet intervals in milliseconds.
@@ -39,9 +39,7 @@ fn generate_aparat_ipt_samples(count: usize) -> Vec<u64> {
 fn generate_tunnel_ipt_samples(count: usize) -> Vec<u64> {
     // Deterministic 50ms heartbeat with ±1ms jitter.
     let mut rng = rand::thread_rng();
-    (0..count)
-        .map(|_| 50 + rng.gen_range(0..=2))
-        .collect()
+    (0..count).map(|_| 50 + rng.gen_range(0..=2)).collect()
 }
 
 fn bench_ipt_entropy_calculation(c: &mut Criterion) {
@@ -51,17 +49,13 @@ fn bench_ipt_entropy_calculation(c: &mut Criterion) {
     // Benchmark: Aparat profile entropy calculation.
     group.bench_function("aparat_entropy_10k", |b| {
         let samples = generate_aparat_ipt_samples(10_000);
-        b.iter(|| {
-            black_box(ipt_shannon_entropy(&samples))
-        });
+        b.iter(|| black_box(ipt_shannon_entropy(&samples)));
     });
 
     // Benchmark: Tunnel (deterministic) entropy calculation.
     group.bench_function("tunnel_entropy_10k", |b| {
         let samples = generate_tunnel_ipt_samples(10_000);
-        b.iter(|| {
-            black_box(ipt_shannon_entropy(&samples))
-        });
+        b.iter(|| black_box(ipt_shannon_entropy(&samples)));
     });
 
     // Benchmark: Mixed profile (simulating jitter-wrapped tunnel).
@@ -71,9 +65,7 @@ fn bench_ipt_entropy_calculation(c: &mut Criterion) {
         let samples: Vec<u64> = (0..10_000)
             .map(|_| rng.gen_range(config.jitter_min_ms..=config.jitter_max_ms))
             .collect();
-        b.iter(|| {
-            black_box(ipt_shannon_entropy(&samples))
-        });
+        b.iter(|| black_box(ipt_shannon_entropy(&samples)));
     });
 
     group.finish();

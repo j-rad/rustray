@@ -24,8 +24,9 @@ use crate::app::stats::StatsManager;
 use crate::config::{LevelPolicy, StreamSettings, TlsSettings};
 use crate::error::Result;
 use crate::outbounds::Outbound;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
 use crate::router::Router;
-use crate::transport::{self, BoxedStream};
+use crate::transport::{self};
 use async_trait::async_trait;
 use sha2::{Digest, Sha224};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -71,7 +72,7 @@ pub struct TrojanInbound;
 
 impl TrojanInbound {
     pub async fn handle_stream(
-        mut stream: BoxedStream,
+        mut stream: BoxedTrinityTransport,
         settings: Arc<crate::config::TrojanSettings>,
         state: Arc<StatsManager>,
         router: Arc<Router>,
@@ -104,7 +105,10 @@ impl TrojanInbound {
 
                 match authenticated_user {
                     Some(user) => {
-                        info!("Trojan: Authenticated as {}", user.email.as_deref().unwrap_or("unknown"));
+                        info!(
+                            "Trojan: Authenticated as {}",
+                            user.email.as_deref().unwrap_or("unknown")
+                        );
                         // Record online IP
                         if let Some(ref email) = user.email {
                             state.record_online_ip(email, source.clone());
@@ -112,7 +116,8 @@ impl TrojanInbound {
                     }
                     None => {
                         warn!("Trojan: Invalid password hash: {}", received_hash);
-                        return Self::fallback(stream, Some(auth_buf.to_vec()), fallback_addr).await;
+                        return Self::fallback(stream, Some(auth_buf.to_vec()), fallback_addr)
+                            .await;
                     }
                 }
             }
@@ -183,7 +188,7 @@ impl TrojanInbound {
     }
 
     async fn fallback(
-        mut stream: BoxedStream,
+        mut stream: BoxedTrinityTransport,
         prefix: Option<Vec<u8>>,
         fallback_addr: Option<SocketAddr>,
     ) -> Result<()> {
@@ -241,7 +246,7 @@ impl TrojanOutbound {
 impl Outbound for TrojanOutbound {
     async fn handle(
         &self,
-        mut in_stream: BoxedStream,
+        mut in_stream: BoxedTrinityTransport,
         host: String,
         port: u16,
         _policy: Arc<LevelPolicy>,
@@ -251,7 +256,7 @@ impl Outbound for TrojanOutbound {
         Ok(())
     }
 
-    async fn dial(&self, host: String, port: u16) -> Result<BoxedStream> {
+    async fn dial(&self, host: String, port: u16) -> Result<BoxedTrinityTransport> {
         // 1. Establish connection to Trojan Server (TCP + TLS)
         let mut stream_settings = StreamSettings::default();
         stream_settings.security = "tls".to_string();
@@ -324,7 +329,7 @@ pub async fn write_trojan_request<W: AsyncWrite + Unpin>(
 /// Handle UDP relay for Trojan protocol  
 /// UDP packets are framed as: [Address Type] [Address] [Port] [Length] [Payload]
 async fn handle_udp_relay(
-    mut stream: BoxedStream,
+    mut stream: BoxedTrinityTransport,
     _router: Arc<Router>,
     _host: String,
     _port: u16,

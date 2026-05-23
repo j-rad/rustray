@@ -1,7 +1,7 @@
 use crate::app::state::GlobalState;
-use actix_web::{post, web, HttpResponse, Responder};
+use actix_web::{HttpResponse, Responder, post, web};
 use serde::{Deserialize, Serialize};
-use tracing::{info, error};
+use tracing::{error, info};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct CreateUserRequest {
@@ -21,9 +21,10 @@ pub async fn create_user(
     // 1. Update SurrealDB
     // We use the raw DB handle from GlobalState for direct control
     let db = &state.db;
-    let user_id = format!("user:{}", req.id);
-    
-    let result: Result<Option<serde_json::Value>, _> = db.upsert(("user", &req.id))
+    let _user_id = format!("user:{}", req.id);
+
+    let result: Result<Option<serde_json::Value>, _> = db
+        .upsert(("user", &req.id))
         .content(serde_json::json!({
             "email": req.email,
             "traffic": 0,
@@ -38,8 +39,8 @@ pub async fn create_user(
     // 2. Notify the engine to hot-reload transport settings
     // In a real scenario, we might rebuild the full Config struct from DB
     // For this bridge, we'll fetch the current config, modify it, and send it.
-    let mut current_config = state.config_tx.borrow().clone();
-    
+    let current_config = state.config_tx.borrow().clone();
+
     // Example: Triggering transport reload by bumping a version or similar
     // Here we just re-send the config to signal a change.
     if let Err(e) = state.config_tx.send(current_config) {

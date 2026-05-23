@@ -244,11 +244,12 @@ fn chrono_like_date() -> String {
     let mut year = 1970u64;
     let mut remaining = days;
     loop {
-        let days_in_year = if year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400)) {
-            366
-        } else {
-            365
-        };
+        let days_in_year =
+            if year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400)) {
+                366
+            } else {
+                365
+            };
         if remaining < days_in_year {
             break;
         }

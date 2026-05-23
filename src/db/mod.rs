@@ -2,20 +2,19 @@
 //! Supports full SurrealDB for desktop/servers and LiteStore (AtomicFile) for embedded devices.
 
 pub mod manager;
-pub use manager::{DbManager, User, Inbound};
+pub use manager::{DbManager, Inbound, User};
 // src/db/mod.rs
-
 
 #[cfg(not(feature = "surrealdb"))]
 mod lite_store {
     use super::*;
+    use anyhow::Result;
+    use serde::{Deserialize, Serialize};
     use std::fs;
     use std::io::Write;
     use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
-    use serde::{Serialize, Deserialize};
     use tracing::{debug, info};
-    use anyhow::Result;
 
     /// LiteStore: A minimal, atomic file-based key-value store.
     /// Stores data as a single JSON file.

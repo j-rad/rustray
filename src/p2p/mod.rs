@@ -4,5 +4,5 @@
 //! Enables traffic bridging through privileged relay nodes using
 //! PSK-authenticated, encrypted connections with zero-copy forwarding.
 
-pub mod relay;
 pub mod conduit;
+pub mod relay;

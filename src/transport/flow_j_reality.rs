@@ -9,8 +9,8 @@
 
 use crate::error::Result;
 use crate::protocols::flow_j::FlowJInboundSettings;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
 use crate::router::Router;
-use crate::transport::BoxedStream;
 use ring::rand::{SecureRandom, SystemRandom};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -208,9 +208,10 @@ fn extract_sni_from_client_hello(data: &[u8]) -> Option<String> {
             pos += 5;
 
             if pos + name_len <= data.len()
-                && let Ok(sni) = std::str::from_utf8(&data[pos..pos + name_len]) {
-                    return Some(sni.to_string());
-                }
+                && let Ok(sni) = std::str::from_utf8(&data[pos..pos + name_len])
+            {
+                return Some(sni.to_string());
+            }
             break;
         }
 
@@ -231,7 +232,7 @@ async fn handle_flowj_stream(
     settings: Arc<FlowJInboundSettings>,
     router: Arc<Router>,
 ) -> Result<()> {
-    let boxed: BoxedStream = Box::new(socket);
+    let boxed: BoxedTrinityTransport = Box::new(socket);
 
     // Delegate to Flow-J inbound handler
     super::super::protocols::flow_j::FlowJInbound::handle_stream(
@@ -314,7 +315,7 @@ pub async fn connect_reality(
     addr: &str,
     sni: Option<&str>,
     private_key: Option<&str>,
-) -> Result<BoxedStream> {
+) -> Result<BoxedTrinityTransport> {
     debug!("Flow-J REALITY: Connecting to {}", addr);
 
     let stream = TcpStream::connect(addr).await?;
@@ -373,11 +374,11 @@ pub async fn connect_reality(
         }
     }
 
-    Ok(Box::new(tls_stream))
+    Ok(Box::new(tls_stream) as BoxedTrinityTransport)
 }
 
 /// Create REALITY TLS stream with bidirectional encryption
-pub async fn create_reality_stream(stream: TcpStream, server_name: &str) -> Result<BoxedStream> {
+pub async fn create_reality_stream(stream: TcpStream, server_name: &str) -> Result<BoxedTrinityTransport> {
     // Create root cert store
     let root_store = rustls::RootCertStore {
         roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
@@ -398,7 +399,7 @@ pub async fn create_reality_stream(stream: TcpStream, server_name: &str) -> Resu
 
     let tls_stream = connector.connect(server_name, stream).await?;
 
-    Ok(Box::new(tls_stream))
+    Ok(Box::new(tls_stream) as BoxedTrinityTransport)
 }
 
 // ============================================================================

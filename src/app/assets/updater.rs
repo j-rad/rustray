@@ -52,17 +52,18 @@ impl AssetUpdater {
 
         // 2. Check local file if exists
         if target_path.exists()
-            && let Some(expected) = &expected_hash {
-                let local_hash = self.compute_file_hash(&target_path)?;
-                if &local_hash == expected {
-                    info!("Asset {} is up to date.", config.name);
-                    return Ok(false);
-                }
-                info!(
-                    "Asset {} hash mismatch (local: {}, remote: {}). Updating...",
-                    config.name, local_hash, expected
-                );
+            && let Some(expected) = &expected_hash
+        {
+            let local_hash = self.compute_file_hash(&target_path)?;
+            if &local_hash == expected {
+                info!("Asset {} is up to date.", config.name);
+                return Ok(false);
             }
+            info!(
+                "Asset {} hash mismatch (local: {}, remote: {}). Updating...",
+                config.name, local_hash, expected
+            );
+        }
 
         // 3. Download to temp file
         let temp_path = self.assets_dir.join(format!("{}.tmp", config.name));

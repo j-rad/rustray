@@ -8,6 +8,8 @@ use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
+use crate::error::Result;
 
 const MAX_CHUNK_SIZE: usize = 0x3FFF; // 16383 bytes
 const TAG_LEN: usize = 16;
@@ -66,6 +68,31 @@ impl<S> ShadowsocksStream<S> {
             }
             nonce[i] = 0;
         }
+    }
+}
+
+impl<S: TrinityTransport + Unpin + Send + 'static> TrinityTransport for ShadowsocksStream<S> {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        self.inner.switch_carrier(new_carrier)
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        self.inner.apply_fragmentation()
+    }
+
+    fn handover(self, new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Ok(Self {
+            inner: self.inner.handover(new_tal)?,
+            cipher: self.cipher,
+            read_nonce: self.read_nonce,
+            write_nonce: self.write_nonce,
+            read_buffer: self.read_buffer,
+            write_buffer: self.write_buffer,
+            pending_plaintext: self.pending_plaintext,
+        })
     }
 }
 

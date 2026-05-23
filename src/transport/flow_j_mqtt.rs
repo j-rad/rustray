@@ -14,7 +14,7 @@ use aes_gcm::{Aes256Gcm, KeyInit, Nonce, aead::Aead};
 use bytes::{Buf, BytesMut};
 use hkdf::Hkdf;
 use rand::{Rng, RngCore as _};
-use rumqttc::{AsyncClient, Event, MqttOptions, Publish, QoS};
+use rumqttc::{AsyncClient, Event, MqttOptions, Publish, QoS, Transport};
 use sha2::Sha256;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -57,7 +57,10 @@ pub struct MqttTunnel {
 
 impl MqttTunnel {
     /// Create new MQTT tunnel
-    pub async fn connect(settings: &MqttSettings) -> Result<Self> {
+    pub async fn connect(
+        settings: &MqttSettings,
+        pqc: Option<&crate::config::PqcSettings>,
+    ) -> Result<Self> {
         // Parse broker address
         let (host, port) = parse_broker_address(&settings.broker)?;
 
@@ -76,6 +79,29 @@ impl MqttTunnel {
         // Set credentials if provided
         if let (Some(username), Some(password)) = (&settings.username, &settings.password) {
             mqtt_options.set_credentials(username, password);
+        }
+
+        // Enable TLS if using standard secure port or if PQC is requested
+        if port == 8883 || port == 443 || pqc.is_some() {
+            let mut root_store = rustls::RootCertStore::empty();
+            root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+
+            let mut provider = rustls::crypto::aws_lc_rs::default_provider();
+            if let Some(pqc_settings) = pqc
+                && pqc_settings.enabled
+            {
+                provider.kx_groups = vec![crate::transport::pqc::HybridGroup::X25519MlKem768.rustls_group()];
+            }
+
+            let rustls_config = rustls::ClientConfig::builder_with_provider(Arc::new(provider))
+                .with_safe_default_protocol_versions()
+                .map_err(|e| anyhow::anyhow!("Flow-J MQTT TLS: Failed to set versions: {}", e))?
+                .with_root_certificates(root_store)
+                .with_no_client_auth();
+
+            mqtt_options.set_transport(Transport::tls_with_config(rumqttc::TlsConfiguration::Rustls(
+                Arc::new(rustls_config),
+            )));
         }
 
         // Create topics with session ID
@@ -208,7 +234,8 @@ use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio_util::sync::PollSender;
 
-// ...
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
+use crate::error::Result as FlowResult;
 
 /// Async stream wrapper for MQTT tunnel
 pub struct MqttStream {
@@ -274,6 +301,23 @@ impl MqttStream {
             read_rx,
             write_tx: PollSender::new(write_tx_inner),
         }
+    }
+}
+
+impl TrinityTransport for MqttStream {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, _new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        Err(io::Error::new(io::ErrorKind::Other, "MqttStream does not support carrier switching"))
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+
+    fn handover(self, _new_tal: BoxedTrinityTransport) -> FlowResult<Self> {
+        Err(anyhow::anyhow!("MqttStream does not support handover"))
     }
 }
 
@@ -414,6 +458,23 @@ impl StealthMqttStream {
             read_rx,
             write_tx: PollSender::new(write_tx_inner),
         }
+    }
+}
+
+impl TrinityTransport for StealthMqttStream {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, _new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        Err(io::Error::new(io::ErrorKind::Other, "StealthMqttStream does not support carrier switching"))
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+
+    fn handover(self, _new_tal: BoxedTrinityTransport) -> FlowResult<Self> {
+        Err(anyhow::anyhow!("StealthMqttStream does not support handover"))
     }
 }
 
@@ -962,8 +1023,12 @@ impl StealthMqttTunnel {
     }
 
     /// Shorthand: connect and return a stealth tunnel.
-    pub async fn connect(settings: &MqttSettings, session_key: [u8; 32]) -> Result<Self> {
-        let inner = MqttTunnel::connect(settings).await?;
+    pub async fn connect(
+        settings: &MqttSettings,
+        session_key: [u8; 32],
+        pqc: Option<&crate::config::PqcSettings>,
+    ) -> Result<Self> {
+        let inner = MqttTunnel::connect(settings, pqc).await?;
         let rotator = StealthTopicRotator::new(session_key);
 
         // Spawn Shadow Telemetry Task

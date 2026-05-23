@@ -13,7 +13,7 @@
 //! Reference: https://github.com/rustray/RustRay/discussions/1295
 
 use crate::error::Result;
-use crate::protocols::flow_trait::Flow;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, Flow, TrinityTransport};
 use bytes::{Buf, BufMut, BytesMut};
 use rand::Rng;
 use std::io;
@@ -130,12 +130,13 @@ impl VisionFlow {
             VisionState::Initial => {
                 // Check for ClientHello
                 if let Some((content_type, _)) = Self::parse_tls_header(src)
-                    && content_type == TLS_HANDSHAKE {
-                        debug!("Vision: ClientHello detected. Activating padding.");
-                        self.state = VisionState::Handshake { records_seen: 1 };
-                        self.add_vision_padding(src, dst);
-                        return;
-                    }
+                    && content_type == TLS_HANDSHAKE
+                {
+                    debug!("Vision: ClientHello detected. Activating padding.");
+                    self.state = VisionState::Handshake { records_seen: 1 };
+                    self.add_vision_padding(src, dst);
+                    return;
+                }
                 // Passthrough
                 dst.extend_from_slice(src);
             }
@@ -207,6 +208,27 @@ impl<S> VisionStream<S> {
             flow: VisionFlow::new(),
             write_buf: BytesMut::with_capacity(8192),
         }
+    }
+}
+
+impl<S: TrinityTransport + Unpin + Send + 'static> TrinityTransport for VisionStream<S> {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        self.inner.switch_carrier(new_carrier)
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        self.inner.apply_fragmentation()
+    }
+
+    fn handover(self, new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Ok(Self {
+            inner: self.inner.handover(new_tal)?,
+            flow: self.flow,
+            write_buf: self.write_buf,
+        })
     }
 }
 

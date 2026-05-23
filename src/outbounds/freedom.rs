@@ -4,7 +4,8 @@ use crate::app::dns::DnsServer;
 use crate::app::stats::StatsManager;
 use crate::config::{FreedomSettings, LevelPolicy, StreamSettings};
 use crate::error::Result;
-use crate::transport::{self, BoxedStream, Packet, UdpPacket, stats::StatsStream};
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
+use crate::transport::{self, Packet, UdpPacket, stats::StatsStream};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::net::SocketAddr;
@@ -91,7 +92,7 @@ impl Freedom {
 impl Outbound for Freedom {
     async fn handle<'a>(
         &'a self,
-        mut in_stream: BoxedStream,
+        mut in_stream: BoxedTrinityTransport,
         host: String,
         port: u16,
         policy: Arc<LevelPolicy>,
@@ -144,7 +145,7 @@ impl Outbound for Freedom {
         }
     }
 
-    async fn dial(&self, host: String, port: u16) -> Result<BoxedStream> {
+    async fn dial(&self, host: String, port: u16) -> Result<BoxedTrinityTransport> {
         let config = self.stats_manager.config.load();
         let settings: StreamSettings = if let Some(outbounds) = &config.outbounds {
             outbounds

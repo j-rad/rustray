@@ -164,8 +164,7 @@ impl ChromeCamouflageBuilder {
 /// Generate random padding bytes
 pub fn generate_padding() -> Vec<u8> {
     let mut rng = rand::thread_rng();
-    let size = (rng.next_u32() as usize % (chrome_fingerprint::PADDING_MAX + 1))
-        .max(chrome_fingerprint::PADDING_MIN);
+    let size = rng.next_u32() as usize % (chrome_fingerprint::PADDING_MAX + 1);
 
     let mut padding = vec![0u8; size];
     rng.fill_bytes(&mut padding);
@@ -299,7 +298,8 @@ pub fn verify_chrome_fingerprint(client_hello: &[u8]) -> bool {
 
     // Size check
     let size = client_hello.len();
-    if !(chrome_fingerprint::TARGET_SIZE_MIN - 50..=chrome_fingerprint::TARGET_SIZE_MAX + 100).contains(&size)
+    if !(chrome_fingerprint::TARGET_SIZE_MIN - 50..=chrome_fingerprint::TARGET_SIZE_MAX + 100)
+        .contains(&size)
     {
         return false;
     }

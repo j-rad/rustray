@@ -1,9 +1,8 @@
 // src/transport/s3_bridge.rs
 use crate::error::Result;
-use crate::transport::AsyncStream;
 use crate::transport::s3_codec::S3Codec;
 use bytes::BytesMut;
-use futures::{SinkExt, StreamExt};
+use futures::SinkExt;
 use rand::Rng;
 use reqwest::Client;
 use std::io;
@@ -40,30 +39,28 @@ pub struct S3Bridge {
 
 impl S3Bridge {
     pub async fn connect(settings: Arc<S3TransportSettings>) -> Result<Self> {
-        let client = Client::builder()
-            .timeout(Duration::from_secs(10))
-            .build()?;
-            
+        let client = Client::builder().timeout(Duration::from_secs(10)).build()?;
+
         let session_id = Uuid::new_v4().to_string();
-        
+
         // Note: For true S3 compatibility, we ideally should sign requests.
-        // For domestic drop-buckets, we often use pre-shared API keys in headers 
+        // For domestic drop-buckets, we often use pre-shared API keys in headers
         // or URLs if using a simple object storage wrapper, to reduce binary bloat.
         // Implementation here assumes a simplified REST interface over `reqwest`.
-        
+
         let (tx, rx) = tokio::sync::mpsc::channel(128);
-        
+
         // Spawn polling loop
         let client_clone = client.clone();
         let settings_clone = settings.clone();
         let session_clone = session_id.clone();
-        
+
         tokio::spawn(async move {
             Self::polling_loop(client_clone, settings_clone, session_clone, tx).await;
         });
 
         debug!("Flow-J S3: Bridge initialized for session {}", session_id);
-        
+
         Ok(Self {
             client,
             settings,
@@ -72,7 +69,7 @@ impl S3Bridge {
             rx,
         })
     }
-    
+
     async fn polling_loop(
         client: Client,
         settings: Arc<S3TransportSettings>,
@@ -88,24 +85,25 @@ impl S3Bridge {
             // Inbound object path convention: s3://bucket/session/inbound_{seq}
             let object_key = format!("{}/inbound_{}", session_id, sequence);
             let url = format!("{}/{}/{}", settings.endpoint, settings.bucket, object_key);
-            
+
             // Perform GET
-            let req = client.get(&url)
+            let req = client
+                .get(&url)
                 // .header("Authorization", format!("Bearer {}", settings.access_key))
                 .send()
                 .await;
-                
+
             match req {
                 Ok(resp) if resp.status().is_success() => {
                     if let Ok(bytes) = resp.bytes().await {
                         let mut codec = S3Codec::new();
-                        if let Ok(decoded) = codec.decode_blob(&bytes) {
-                            if tx.send(decoded).await.is_err() {
-                                break; // Receiver dropped
-                            }
+                        if let Ok(decoded) = codec.decode_blob(&bytes)
+                            && tx.send(decoded).await.is_err()
+                        {
+                            break; // Receiver dropped
                         }
                     }
-                    
+
                     // Fire-and-forget DELETE so we don't build up infinite garbage
                     let del_url = url.clone();
                     let del_client = client.clone();
@@ -113,7 +111,7 @@ impl S3Bridge {
                     tokio::spawn(async move {
                         let _ = del_client.delete(&del_url).send().await;
                     });
-                    
+
                     sequence += 1;
                 }
                 Ok(resp) if resp.status() == 404 => {
@@ -128,25 +126,30 @@ impl S3Bridge {
             }
         }
     }
-    
+
     pub async fn send(&self, data: &[u8], sequence_out: u64) -> Result<()> {
         let mut codec = self.codec.lock().await;
         let blob = codec.encode_blob(data);
-        
+
         // Outbound object path convention: s3://bucket/session/outbound_{seq}
         let object_key = format!("{}/outbound_{}", self.session_id, sequence_out);
-        let url = format!("{}/{}/{}", self.settings.endpoint, self.settings.bucket, object_key);
-        
-        let resp = self.client.put(&url)
+        let url = format!(
+            "{}/{}/{}",
+            self.settings.endpoint, self.settings.bucket, object_key
+        );
+
+        let resp = self
+            .client
+            .put(&url)
             // .header("Authorization", format!("Bearer {}", self.settings.access_key))
             .body(blob)
             .send()
             .await?;
-            
+
         if !resp.status().is_success() {
             return Err(anyhow::anyhow!("Failed to PUT S3 blob: {}", resp.status()));
         }
-        
+
         Ok(())
     }
 }
@@ -164,13 +167,13 @@ impl S3BridgeStream {
     pub fn new(mut bridge: S3Bridge) -> Self {
         let read_rx = std::mem::replace(&mut bridge.rx, tokio::sync::mpsc::channel(1).1); // Dummy replace
         let bridge = Arc::new(bridge);
-        
+
         let (write_tx_inner, mut write_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(128);
         let sequence_out = Arc::new(Mutex::new(0));
 
         let write_bridge = bridge.clone();
         let write_seq = sequence_out.clone();
-        
+
         tokio::spawn(async move {
             while let Some(data) = write_rx.recv().await {
                 let mut seq = write_seq.lock().await;
@@ -202,7 +205,7 @@ impl AsyncRead for S3BridgeStream {
         if !self.read_buffer.is_empty() {
             let len = std::cmp::min(self.read_buffer.len(), buf.remaining());
             buf.put_slice(&self.read_buffer[..len]);
-            
+
             // Advance buffer
             // For BytesMut, split_to is fine or advance but BytesMut::advance takes ownership of part, so we copy
             let remaining = self.read_buffer.split_off(len);

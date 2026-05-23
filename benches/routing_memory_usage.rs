@@ -5,7 +5,7 @@
 //! but verifies that the zero-copy path is functioning and performant,
 //! which implies the memory savings (no Vec allocations).
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use rustray::app::router::geo_loader::GeoManager;
 use std::net::Ipv4Addr;
 use tokio::runtime::Runtime;

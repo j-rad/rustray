@@ -13,6 +13,7 @@ use actix_web::{
     http::header,
     web,
 };
+use base64::{Engine as _, engine::general_purpose};
 use dashmap::DashMap;
 use futures::Future;
 use futures::future::{Ready, ok};
@@ -21,7 +22,6 @@ use sha2::Sha256;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use base64::{Engine as _, engine::general_purpose};
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -354,9 +354,10 @@ pub async fn refresh(
 pub async fn logout(req: HttpRequest, config: web::Data<Arc<AuthConfig>>) -> HttpResponse {
     if let Some(auth_val) = req.headers().get(header::AUTHORIZATION)
         && let Ok(auth_str) = auth_val.to_str()
-            && let Some(token) = auth_str.strip_prefix("Bearer ") {
-                config.session_store.revoke_session(token);
-            }
+        && let Some(token) = auth_str.strip_prefix("Bearer ")
+    {
+        config.session_store.revoke_session(token);
+    }
     HttpResponse::Ok().json(serde_json::json!({"status": "logged_out"}))
 }
 

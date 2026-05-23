@@ -10,10 +10,38 @@
 //! These tests ensure that FFI clients can successfully use rustray's
 //! premium stealth features through the exported functions.
 
-use rustray::RustRayResult;
+use rustray::RayResult;
 use rustray::ffi::{
     ConnectConfig, FlowJCdnConfig, FlowJMobileConfig, FragmentConfig, RealityConfig,
 };
+
+/// Test configuration parsing for Masquerade Weights
+#[test]
+fn test_config_parsing_masquerade_weights() {
+    let json = r#"
+    {
+        "address": "example.com",
+        "port": 443,
+        "uuid": "test-uuid",
+        "protocol": "vless",
+        "security": "tls",
+        "masquerade_weights": {
+            "browser": 10,
+            "enterprise": 80,
+            "os_update": 5,
+            "cli": 5
+        }
+    }
+    "#;
+
+    let config: ConnectConfig = serde_json::from_str(json).unwrap();
+
+    let weights = config.masquerade_weights.unwrap();
+    assert_eq!(weights.browser, 10);
+    assert_eq!(weights.enterprise, 80);
+    assert_eq!(weights.os_update, 5);
+    assert_eq!(weights.cli, 5);
+}
 
 /// Test configuration parsing for REALITY settings
 #[test]
@@ -260,7 +288,7 @@ fn test_ffi_start_invalid_config() {
     // Not a Result type, but the Enum directly
 
     match result {
-        RustRayResult::ConfigError(msg) => {
+        RayResult::ConfigError(msg) => {
             assert!(msg.contains("expected") || msg.contains("EOF") || msg.contains("JSON"));
         }
         e => panic!("Expected ConfigError, got {:?}", e),
@@ -342,25 +370,25 @@ fn test_flowj_mobile_config_serialization() {
 fn test_ffi_error_display() {
     let errors = vec![
         (
-            RustRayResult::ConfigError("bad config".to_string()),
+            RayResult::ConfigError("bad config".to_string()),
             "Configuration error: bad config",
         ),
         (
-            RustRayResult::ConnectionError("timeout".to_string()),
+            RayResult::ConnectionError("timeout".to_string()),
             "Connection error: timeout",
         ),
         (
-            RustRayResult::HandshakeError("tls failed".to_string()),
+            RayResult::HandshakeError("tls failed".to_string()),
             "Handshake error: tls failed",
         ),
         (
-            RustRayResult::ProtocolError("invalid".to_string()),
+            RayResult::ProtocolError("invalid".to_string()),
             "Protocol error: invalid",
         ),
-        (RustRayResult::AlreadyRunning, "Tunnel already running"),
-        (RustRayResult::NotRunning, "Tunnel not running"),
+        (RayResult::AlreadyRunning, "Tunnel already running"),
+        (RayResult::NotRunning, "Tunnel not running"),
         (
-            RustRayResult::PanicError("crash".to_string()),
+            RayResult::PanicError("crash".to_string()),
             "Panic occurred: crash",
         ),
     ];

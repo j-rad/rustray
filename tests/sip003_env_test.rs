@@ -82,7 +82,7 @@ fn test_sip003_env_vars_map() {
     assert_eq!(env_vars.get("SS_REMOTE_PORT").unwrap(), "443");
     assert_eq!(env_vars.get("SS_LOCAL_HOST").unwrap(), "127.0.0.1");
     assert_eq!(env_vars.get("SS_LOCAL_PORT").unwrap(), "1080");
-    
+
     let options = env_vars.get("SS_PLUGIN_OPTIONS").unwrap();
     // Options may be in any order due to HashMap iteration
     assert!(options.contains("obfs=tls") || options.contains("fast-open"));

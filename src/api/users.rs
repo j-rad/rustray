@@ -76,6 +76,7 @@ pub struct PaginatedResponse<T> {
 /// User management state
 pub struct UserManagementState {
     pub db: Arc<surrealdb::Surreal<surrealdb::engine::local::Db>>,
+    #[cfg(feature = "full-server")]
     pub traffic_store: Arc<crate::jobs::billing::TrafficStore>,
 }
 
@@ -125,41 +126,37 @@ pub async fn list_users(
             for inbound in inbounds {
                 let tag = inbound.get("tag").and_then(|v| v.as_str()).unwrap_or("");
                 if let Some(settings) = inbound.get("settings")
-                    && let Some(clients) = settings.get("clients").and_then(|c| c.as_array()) {
-                        for client in clients {
-                            let user = UserDto {
-                                id: client
-                                    .get("id")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("")
-                                    .to_string(),
-                                email: client
-                                    .get("email")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("")
-                                    .to_string(),
-                                inbound_tag: tag.to_string(),
-                                enabled: client
-                                    .get("enable")
-                                    .and_then(|v| v.as_bool())
-                                    .unwrap_or(true),
-                                upload_bytes: client
-                                    .get("up")
-                                    .and_then(|v| v.as_i64())
-                                    .unwrap_or(0),
-                                download_bytes: client
-                                    .get("down")
-                                    .and_then(|v| v.as_i64())
-                                    .unwrap_or(0),
-                                total_limit_gb: client
-                                    .get("total_flow_limit")
-                                    .and_then(|v| v.as_i64()),
-                                expiry_time: client.get("expiry_time").and_then(|v| v.as_i64()),
-                                created_at: 0,
-                            };
-                            users.push(user);
-                        }
+                    && let Some(clients) = settings.get("clients").and_then(|c| c.as_array())
+                {
+                    for client in clients {
+                        let user = UserDto {
+                            id: client
+                                .get("id")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string(),
+                            email: client
+                                .get("email")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string(),
+                            inbound_tag: tag.to_string(),
+                            enabled: client
+                                .get("enable")
+                                .and_then(|v| v.as_bool())
+                                .unwrap_or(true),
+                            upload_bytes: client.get("up").and_then(|v| v.as_i64()).unwrap_or(0),
+                            download_bytes: client
+                                .get("down")
+                                .and_then(|v| v.as_i64())
+                                .unwrap_or(0),
+                            total_limit_gb: client.get("total_flow_limit").and_then(|v| v.as_i64()),
+                            expiry_time: client.get("expiry_time").and_then(|v| v.as_i64()),
+                            created_at: 0,
+                        };
+                        users.push(user);
                     }
+                }
             }
 
             let total = users.len() as u64;
@@ -198,40 +195,41 @@ pub async fn get_user(
             for inbound in inbounds {
                 let tag = inbound.get("tag").and_then(|v| v.as_str()).unwrap_or("");
                 if let Some(settings) = inbound.get("settings")
-                    && let Some(clients) = settings.get("clients").and_then(|c| c.as_array()) {
-                        for client in clients {
-                            let id = client.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                            if id == user_id {
-                                let user = UserDto {
-                                    id: id.to_string(),
-                                    email: client
-                                        .get("email")
-                                        .and_then(|v| v.as_str())
-                                        .unwrap_or("")
-                                        .to_string(),
-                                    inbound_tag: tag.to_string(),
-                                    enabled: client
-                                        .get("enable")
-                                        .and_then(|v| v.as_bool())
-                                        .unwrap_or(true),
-                                    upload_bytes: client
-                                        .get("up")
-                                        .and_then(|v| v.as_i64())
-                                        .unwrap_or(0),
-                                    download_bytes: client
-                                        .get("down")
-                                        .and_then(|v| v.as_i64())
-                                        .unwrap_or(0),
-                                    total_limit_gb: client
-                                        .get("total_flow_limit")
-                                        .and_then(|v| v.as_i64()),
-                                    expiry_time: client.get("expiry_time").and_then(|v| v.as_i64()),
-                                    created_at: 0,
-                                };
-                                return HttpResponse::Ok().json(user);
-                            }
+                    && let Some(clients) = settings.get("clients").and_then(|c| c.as_array())
+                {
+                    for client in clients {
+                        let id = client.get("id").and_then(|v| v.as_str()).unwrap_or("");
+                        if id == user_id {
+                            let user = UserDto {
+                                id: id.to_string(),
+                                email: client
+                                    .get("email")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_string(),
+                                inbound_tag: tag.to_string(),
+                                enabled: client
+                                    .get("enable")
+                                    .and_then(|v| v.as_bool())
+                                    .unwrap_or(true),
+                                upload_bytes: client
+                                    .get("up")
+                                    .and_then(|v| v.as_i64())
+                                    .unwrap_or(0),
+                                download_bytes: client
+                                    .get("down")
+                                    .and_then(|v| v.as_i64())
+                                    .unwrap_or(0),
+                                total_limit_gb: client
+                                    .get("total_flow_limit")
+                                    .and_then(|v| v.as_i64()),
+                                expiry_time: client.get("expiry_time").and_then(|v| v.as_i64()),
+                                created_at: 0,
+                            };
+                            return HttpResponse::Ok().json(user);
                         }
                     }
+                }
             }
 
             HttpResponse::NotFound().json(serde_json::json!({"error": "User not found"}))
@@ -271,6 +269,7 @@ pub async fn create_user(
     match state.db.query(&query).bind(("client", client)).await {
         Ok(_) => {
             // Initialize traffic counter
+            #[cfg(feature = "full-server")]
             state.traffic_store.set_limits(
                 &user_id,
                 &body.inbound_tag,

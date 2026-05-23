@@ -5,16 +5,17 @@
 [![Build Status](https://github.com/FaezBarghasa/rustray/actions/workflows/test.yml/badge.svg)](https://github.com/FaezBarghasa/rustray/actions)
 [![Production Ready](https://img.shields.io/badge/Status-Production--Ready-success.svg)](IMPLEMENTATION_STATUS.md)
 
-**RustRay** is a next-generation, high-performance universal proxy core written entirely in memory-safe Rust. It functions as a **100% drop-in replacement** for legacy systems like `RustRay-core`, merging standard JSON APIs with cutting-edge proprietary evasion techniques built natively into the runtime.
+**RustRay** is a next-generation, high-performance universal proxy core written entirely in memory-safe Rust. It functions as a **100% drop-in replacement** for legacy systems like `Xray-core`, merging standard JSON APIs with cutting-edge proprietary evasion techniques built natively into the runtime.
 
 ---
 
 ## 📖 Table of Contents
 
 - [Core Philosophy](#core-philosophy)
-- [Key Features](#evasion-highlights)
-- [Getting Started](#building--integration)
-- [Roadmap](#project-roadmap)
+- [Key Features](#key-features)
+- [Getting Started](#getting-started)
+- [For Developers](#for-developers)
+- [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [Security](#security)
 - [Community](#community)
@@ -22,7 +23,7 @@
 ## Core Philosophy
 
 - **Uncompromising Performance**: Built securely on `tokio`, `quiche`, and `smoltcp` for extreme throughput and zero-copy packet passing (`bytes`).
-- **Legacy Compatibility**: Reads standard `rustray` configurations, handling routing and outbounds without breaking your existing CI pipelines.
+- **Legacy Compatibility**: Reads standard `xray`/`rustray` configurations, handling routing and outbounds without breaking your existing CI pipelines.
 - **Radical Stealth**: Leverages `aya` eBPF hooking and advanced app-layer desynchronization to effectively disappear from stateful Deep Packet Inspection.
 
 ## Key Features
@@ -30,6 +31,7 @@
 ### Transports & Cryptography
 
 - **Brutal-QUIC Congestion Controller:** Replaces classic TCP Cubic/BBR with a fixed-rate QUIC pump, tearing through packet-loss walls set up by ISPs.
+- **Relay Domain Fronting:** Tunnels TCP streams through fronted HTTP relays (e.g. Google Apps Script, Workers) using base64-encoded polling/uploading to hide behind legitimate domain traffic.
 - **DNS-over-QUIC (DoQ) Signaling:** Encrypted signaling using `hickory-resolver` for resilient, low-latency peer discovery and configuration fetching.
 - **Secure mDNS Peer Announcements:** Local mesh discovery using AES-256-GCM encrypted mDNS, enabling zero-config peer-to-peer relaying in restricted LANs.
 - **Elastic FEC:** Reed-Solomon Forward Error Correction calculates invisible repair packets alongside your traffic, rebuilding dropped data without a single retransmission ping.
@@ -44,13 +46,15 @@ RustRay ships with **Flow-J**, a dynamic polyglot protocol that shapeshifts unde
 
 ### Tactical Subsystems
 
+- **Markov-chain Traffic Shaping:** The `BehaviorSynthesizer` engine synthesizes packet timing and sizing patterns to mimic protocols like Modbus/TCP or MQTT, defeating statistical DPI analysis.
 - **The eBPF Handshake Mutilator:** On Linux, `rustray` injects eBPF-based transport enhancements into the kernel, intentionally slicing our own TLS ClientHello packets at specific boundary limits to crash or evade inline DPI firewalls.
+- **MITM Interception Engine:** Provides on-the-fly certificate generation and transparent TLS termination for deep traffic analysis or domain-specific relaying.
 - **Autonomous Fallback Orchestrator:** Monitors health with a 5MB failover buffer. If a server is IP-blackholed, RustRay instantly races all available transports and hot-swaps to the lowest-latency path.
 - **Carrier-Aware ISP Tuning:** Automatically detects mobile carriers (MCI, MTN, Rightel) via ASNs and applies optimal MTU/MSS clamping and packet pacing presets to bypass carrier-specific throttling.
 
 ## Getting Started
 
-RustRay natively targets Linux, Windows, macOS, and via `UniFFI`, Android (JNI) and iOS.
+RustRay natively targets Linux, Windows, macOS, and via `UniFFI`, Android (JNI) and iOS. Embedded devices are supported through `rustray-lite`.
 
 To compile the headless proxy core with all evasion features active:
 
@@ -83,7 +87,8 @@ Detailed roadmap can be found in [FUTURE_IMPLEMENTATION_PLAN.md](FUTURE_IMPLEMEN
 - [x] Phase 9: Industrial Parasite (MQTT Steganography)
 - [x] Phase 10: XDP Kernel Jitter & Window Control
 - [x] Phase 11: Global Orchestrator (Handshake Race & Seamless Fallback)
-- [ ] Phase 12: Post-Quantum Cryptography (PQC) Integration (In Progress)
+- [x] Phase 12: Relay Domain Fronting & Traffic Shaping
+- [ ] Phase 13: Post-Quantum Cryptography (PQC) Integration (In Progress)
 
 ## Contributing
 

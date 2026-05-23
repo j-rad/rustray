@@ -119,7 +119,7 @@ impl TlsForensicsCollector {
     pub fn remove_connection(&self, id: &str) {
         let mut connections = self.connections.write().unwrap();
 
-        if let Some(mut conn) = connections.get_mut(id) {
+        if let Some(conn) = connections.get_mut(id) {
             conn.state = ConnectionState::Closed;
         }
 

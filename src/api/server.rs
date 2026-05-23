@@ -7,7 +7,7 @@ use crate::app::stats::StatsManager;
 use crate::db::DbManager;
 use crate::error::Result;
 use actix_files as fs;
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{App, HttpResponse, HttpServer, Responder, get, post, web};
 use std::sync::Arc;
 use tonic::transport::Server;
 use tracing::info;
@@ -20,7 +20,10 @@ pub async fn run_grpc_server(port: u16, stats_manager: Arc<StatsManager>) -> Res
 
     // Create service implementations
     let handler_service = HandlerServiceImpl::new(stats_manager.clone());
-    let stats_service = StatsServiceImpl::new(stats_manager);
+    let stats_service = StatsServiceImpl::new(stats_manager.clone());
+    let hot_config = crate::api::rustray_control::HotConfig::new((*stats_manager.config.load().clone()).clone());
+    let control_bus = crate::api::rustray_control::ControlBus::new(hot_config);
+    let control_service = control_bus.into_server();
 
     // Initialize health reporter
     let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
@@ -36,6 +39,7 @@ pub async fn run_grpc_server(port: u16, stats_manager: Arc<StatsManager>) -> Res
         .add_service(health_service)
         .add_service(HandlerServiceServer::new(handler_service))
         .add_service(StatsServiceServer::new(stats_service))
+        .add_service(control_service)
         .serve(addr)
         .await?;
 

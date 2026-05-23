@@ -35,28 +35,29 @@ pub struct Config {
 impl Config {
     pub fn validate(&self) -> Result<(), String> {
         if let Some(routing) = &self.routing
-            && let Some(rules) = &routing.rules {
-                let _visited: HashSet<String> = HashSet::new();
-                for rule in rules {
-                    // Detect circular balancer references or invalid tags
-                    // Simplified check: ensure outbound_tag exists or is a balancer
-                    if rule.outbound_tag.starts_with("balancer:") {
-                        let balancer_tag = rule.outbound_tag.strip_prefix("balancer:").unwrap();
-                        let balancer_exists = routing
-                            .balancers
-                            .as_ref()
-                            .is_some_and(|b| b.iter().any(|x| x.tag == balancer_tag));
-                        if !balancer_exists {
-                            return Err(format!(
-                                "Rule references non-existent balancer: {}",
-                                balancer_tag
-                            ));
-                        }
+            && let Some(rules) = &routing.rules
+        {
+            let _visited: HashSet<String> = HashSet::new();
+            for rule in rules {
+                // Detect circular balancer references or invalid tags
+                // Simplified check: ensure outbound_tag exists or is a balancer
+                if rule.outbound_tag.starts_with("balancer:") {
+                    let balancer_tag = rule.outbound_tag.strip_prefix("balancer:").unwrap();
+                    let balancer_exists = routing
+                        .balancers
+                        .as_ref()
+                        .is_some_and(|b| b.iter().any(|x| x.tag == balancer_tag));
+                    if !balancer_exists {
+                        return Err(format!(
+                            "Rule references non-existent balancer: {}",
+                            balancer_tag
+                        ));
                     }
-                    // RustRay allows complex routing so simple cycles are hard to detect statically without full resolution logic.
-                    // This basic check ensures at least target existence.
                 }
+                // RustRay allows complex routing so simple cycles are hard to detect statically without full resolution logic.
+                // This basic check ensures at least target existence.
             }
+        }
 
         if let Some(isp) = &self.isp {
             let preset = isp.presets.iter().find(|p| p.name == isp.active_preset);
@@ -452,6 +453,95 @@ fn default_ws_path() -> String {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct FinalMask {
+    pub tcp: Option<Vec<FinalMaskTcp>>,
+    pub udp: Option<Vec<FinalMaskUdp>>,
+    pub quic_params: Option<QuicParams>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct FinalMaskTcp {
+    pub r#type: String,
+    pub settings: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct FinalMaskUdp {
+    pub r#type: String,
+    pub settings: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct QuicParams {
+    pub congestion: Option<String>,
+    pub debug: Option<bool>,
+    pub brutal_up: Option<String>,
+    pub brutal_down: Option<String>,
+    pub udp_hop: Option<UdpHop>,
+    pub init_stream_receive_window: Option<u64>,
+    pub max_stream_receive_window: Option<u64>,
+    pub init_connection_receive_window: Option<u64>,
+    pub max_connection_receive_window: Option<u64>,
+    pub max_idle_timeout: Option<u64>,
+    pub keep_alive_period: Option<u64>,
+    pub disable_path_mtu_discovery: Option<bool>,
+    pub max_incoming_streams: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct UdpHop {
+    pub ports: String,
+    pub interval: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Sockopt {
+    pub mark: Option<i32>,
+    pub tcp_max_seg: Option<u16>,
+    pub tcp_fast_open: Option<serde_json::Value>,
+    pub tproxy: Option<String>,
+    pub domain_strategy: Option<String>,
+    pub happy_eyeballs: Option<HappyEyeballs>,
+    pub dialer_proxy: Option<String>,
+    pub accept_proxy_protocol: Option<bool>,
+    pub tcp_keep_alive_interval: Option<i32>,
+    pub tcp_keep_alive_idle: Option<i32>,
+    pub tcp_user_timeout: Option<i32>,
+    pub tcpcongestion: Option<String>,
+    pub r#interface: Option<String>,
+    pub v6_only: Option<bool>,
+    pub tcp_window_clamp: Option<i32>,
+    pub tcp_mptcp: Option<bool>,
+    pub address_port_strategy: Option<String>,
+    pub custom_sockopt: Option<Vec<CustomSockopt>>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct HappyEyeballs {
+    pub try_delay_ms: Option<u64>,
+    pub prioritize_ipv6: Option<bool>,
+    pub interleave: Option<u32>,
+    pub max_concurrent_try: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomSockopt {
+    pub system: Option<String>,
+    pub r#type: String,
+    pub level: Option<String>,
+    pub opt: String,
+    pub value: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct RealityClientConfig {
     pub show: bool,
     pub fingerprint: String,
@@ -463,8 +553,9 @@ pub struct RealityClientConfig {
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct TlsFragmentSettings {
-    pub length: String,
-    pub interval: String,
+    pub length: Option<String>,
+    pub interval: Option<String>,
+    pub sni_spoof: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -479,6 +570,15 @@ pub struct SniffingConfig {
     #[serde(deserialize_with = "deserialize_dest_override")]
     pub dest_override: Option<Vec<String>>,
     pub metadata_only: Option<bool>,
+    pub mitm: Option<MitmConfig>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct MitmConfig {
+    pub enabled: bool,
+    pub ca_cert: Option<String>,
+    pub ca_key: Option<String>,
 }
 
 fn deserialize_dest_override<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
@@ -673,6 +773,7 @@ pub struct Hysteria2OutboundSettings {
     pub down_mbps: Option<u64>,
     pub password: Option<String>,
     pub obfuscation: Option<Obfuscation>,
+    pub pqc: Option<PqcSettings>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -699,6 +800,7 @@ pub struct TuicOutboundSettings {
     pub udp_relay_mode: Option<String>,
     pub heartbeart_interval: Option<u64>,
     pub allow_insecure: Option<bool>,
+    pub pqc: Option<PqcSettings>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -852,6 +954,20 @@ pub struct SlipstreamConfig {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RelayFrontingConfig {
+    pub relay_url: String,
+    pub host: String,
+    pub sni: String,
+    #[serde(default = "default_relay_interval")]
+    pub interval_ms: u64,
+}
+
+fn default_relay_interval() -> u64 {
+    500
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct PaqetConfig {
     pub mtu: Option<u32>,
     pub tti: Option<u32>,
@@ -937,6 +1053,81 @@ pub struct StreamSettings {
     pub multiport: Option<MultiportConfig>,
     #[serde(default)]
     pub fec: Option<FecSettings>,
+    #[serde(default)]
+    pub relay_fronting: Option<RelayFrontingConfig>,
+    #[serde(default)]
+    pub masquerade_weights: Option<MasqueradeWeights>,
+    #[serde(default)]
+    pub decoy_headers: Option<HashMap<String, String>>,
+    #[serde(default)]
+    pub pqc: Option<PqcSettings>,
+    #[serde(default)]
+    pub finalmask: Option<FinalMask>,
+    #[serde(default)]
+    pub sockopt: Option<Sockopt>,
+    #[serde(default)]
+    pub shadow_mieru_settings: Option<ShadowMieruConfig>,
+    #[serde(default)]
+    pub overtls_settings: Option<OvertlsConfig>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ShadowMieruConfig {
+    pub entropy_key: String, // Hex-encoded 16-byte shared secret
+    pub pacing_mbps: u64,
+    pub decoy_profile: String, // "http2" or "webrtc"
+    pub padding_profile: String, // "youtube" or "zoom"
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct OvertlsConfig {
+    pub weird_uri: String,
+    pub decoy_proxy_addr: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MasqueradeWeights {
+    #[serde(default = "default_weight_browser")]
+    pub browser: u32,
+    #[serde(default = "default_weight_enterprise")]
+    pub enterprise: u32,
+    #[serde(default = "default_weight_os_update")]
+    pub os_update: u32,
+    #[serde(default = "default_weight_cli")]
+    pub cli: u32,
+    #[serde(default = "default_weight_domestic")]
+    pub domestic: u32,
+}
+
+impl Default for MasqueradeWeights {
+    fn default() -> Self {
+        Self {
+            browser: default_weight_browser(),
+            enterprise: default_weight_enterprise(),
+            os_update: default_weight_os_update(),
+            cli: default_weight_cli(),
+            domestic: default_weight_domestic(),
+        }
+    }
+}
+
+fn default_weight_browser() -> u32 {
+    40
+}
+fn default_weight_enterprise() -> u32 {
+    15
+}
+fn default_weight_os_update() -> u32 {
+    15
+}
+fn default_weight_cli() -> u32 {
+    10
+}
+fn default_weight_domestic() -> u32 {
+    20
 }
 
 fn default_tcp_network() -> String {

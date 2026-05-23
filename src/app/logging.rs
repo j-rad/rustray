@@ -127,17 +127,18 @@ impl LogGuard {
         if let Ok(entries) = std::fs::read_dir(&self.config.log_dir) {
             for entry in entries.flatten() {
                 if let Ok(metadata) = entry.metadata()
-                    && metadata.is_file() {
-                        let name = entry.file_name().to_string_lossy().to_string();
-                        if name.starts_with(&self.config.file_prefix) {
-                            files.push(LogFileInfo {
-                                name,
-                                path: entry.path(),
-                                size: metadata.len(),
-                                modified: metadata.modified().ok(),
-                            });
-                        }
+                    && metadata.is_file()
+                {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    if name.starts_with(&self.config.file_prefix) {
+                        files.push(LogFileInfo {
+                            name,
+                            path: entry.path(),
+                            size: metadata.len(),
+                            modified: metadata.modified().ok(),
+                        });
                     }
+                }
             }
         }
         files.sort_by(|a, b| b.modified.cmp(&a.modified));
@@ -176,10 +177,11 @@ impl LogGuard {
         for file in self.list_log_files() {
             if let Some(modified) = file.modified
                 && modified < cutoff
-                    && std::fs::remove_file(&file.path).is_ok() {
-                        deleted += 1;
-                        tracing::info!("Deleted old log file: {}", file.name);
-                    }
+                && std::fs::remove_file(&file.path).is_ok()
+            {
+                deleted += 1;
+                tracing::info!("Deleted old log file: {}", file.name);
+            }
         }
         Ok(deleted)
     }

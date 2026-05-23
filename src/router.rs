@@ -8,8 +8,9 @@ use crate::app::stats::StatsManager;
 use crate::config::{LevelPolicy, Rule};
 use crate::error::Result;
 use crate::outbounds::OutboundManager;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
 use crate::transport::prefix_stream::PrefixedStream;
-use crate::transport::{BoxedStream, Packet};
+use crate::transport::Packet;
 use regex::Regex;
 use std::collections::HashMap;
 use std::net::IpAddr;
@@ -42,9 +43,10 @@ impl BalancerStrategy for LeastPingStrategy {
         let mut sorted = candidates.to_vec();
         sorted.sort_by_key(|candidate| {
             if let Some(s) = stats.outbound_stats.get(candidate)
-                && s.avg_latency > 0 {
-                    return s.avg_latency;
-                }
+                && s.avg_latency > 0
+            {
+                return s.avg_latency;
+            }
             // Fallback to legacy stats if necessary
             let rtt = stats.get_stats(&format!("outbound>>{}>>observatory>>latency_ms", candidate));
             if rtt > 0 {
@@ -333,27 +335,28 @@ impl Router {
             let config = self.stats_manager.config.load();
             if let Some(routing) = &config.routing
                 && let Some(balancers) = &routing.balancers
-                    && let Some(b) = balancers.iter().find(|x| x.tag == balancer_tag) {
-                        // Gather candidates
-                        let mut candidates = Vec::new();
-                        if let Some(outbounds) = &config.outbounds {
-                            for out in outbounds {
-                                for selector in &b.selector {
-                                    if out.tag.starts_with(selector) {
-                                        candidates.push(out.tag.clone());
-                                    }
-                                }
+                && let Some(b) = balancers.iter().find(|x| x.tag == balancer_tag)
+            {
+                // Gather candidates
+                let mut candidates = Vec::new();
+                if let Some(outbounds) = &config.outbounds {
+                    for out in outbounds {
+                        for selector in &b.selector {
+                            if out.tag.starts_with(selector) {
+                                candidates.push(out.tag.clone());
                             }
                         }
-
-                        let strategy: Box<dyn BalancerStrategy> = match b.strategy.as_deref() {
-                            Some("leastPing") => Box::new(LeastPingStrategy),
-                            Some("reliability") => Box::new(ReliabilityStrategy),
-                            _ => Box::new(RandomStrategy),
-                        };
-
-                        return strategy.select(&candidates, &self.stats_manager, balancer_tag);
                     }
+                }
+
+                let strategy: Box<dyn BalancerStrategy> = match b.strategy.as_deref() {
+                    Some("leastPing") => Box::new(LeastPingStrategy),
+                    Some("reliability") => Box::new(ReliabilityStrategy),
+                    _ => Box::new(RandomStrategy),
+                };
+
+                return strategy.select(&candidates, &self.stats_manager, balancer_tag);
+            }
         }
         vec![outbound_tag.to_string()]
     }
@@ -424,16 +427,17 @@ impl Router {
 
         // 4. DNS / IP-On-Demand Fallback
         if host.parse::<IpAddr>().is_err()
-            && let Ok(ips) = self.dns_server.resolve_ip(host).await {
-                for ip in ips {
-                    if let Some((idx, tag)) = inner.ip_matcher.match_ip(ip) {
-                        debug!("IP-On-Demand matched: {} -> {} (Rule {})", host, tag, idx);
-                        if self.check_rule(&inner, idx, &ip.to_string(), port) {
-                            return tag;
-                        }
+            && let Ok(ips) = self.dns_server.resolve_ip(host).await
+        {
+            for ip in ips {
+                if let Some((idx, tag)) = inner.ip_matcher.match_ip(ip) {
+                    debug!("IP-On-Demand matched: {} -> {} (Rule {})", host, tag, idx);
+                    if self.check_rule(&inner, idx, &ip.to_string(), port) {
+                        return tag;
                     }
                 }
             }
+        }
 
         "direct".to_string()
     }
@@ -446,9 +450,10 @@ impl Router {
 
         // Check Port
         if let Some(port_range) = &rule.port
-            && !self.check_port_rule(port_range, port) {
-                return false;
-            }
+            && !self.check_port_rule(port_range, port)
+        {
+            return false;
+        }
 
         // Check Domain / Regex
         if let Some(domains) = &rule.domain {
@@ -465,11 +470,13 @@ impl Router {
             if !domain_matched {
                 // Fallback scan for plain domains
                 for d in domains {
-                    if !d.starts_with("regexp:") && !d.starts_with("geosite:")
-                        && self.check_domain_string(d, host) {
-                            domain_matched = true;
-                            break;
-                        }
+                    if !d.starts_with("regexp:")
+                        && !d.starts_with("geosite:")
+                        && self.check_domain_string(d, host)
+                    {
+                        domain_matched = true;
+                        break;
+                    }
                 }
             }
 
@@ -486,11 +493,14 @@ impl Router {
             let part = part.trim();
             if let Some((start, end)) = part.split_once('-') {
                 if let (Ok(s), Ok(e)) = (start.parse::<u16>(), end.parse::<u16>())
-                    && port >= std::cmp::min(s, e) && port <= std::cmp::max(s, e) {
-                        return true;
-                    }
+                    && port >= std::cmp::min(s, e)
+                    && port <= std::cmp::max(s, e)
+                {
+                    return true;
+                }
             } else if let Ok(p) = part.parse::<u16>()
-            && p == port {
+                && p == port
+            {
                 return true;
             }
         }
@@ -511,7 +521,7 @@ impl Router {
 
     pub async fn route_stream(
         &self,
-        stream: BoxedStream,
+        stream: BoxedTrinityTransport,
         host: String,
         port: u16,
         source: String,
@@ -535,7 +545,7 @@ impl Router {
 
         // Wrap stream to track traffic
         let tracked_stream = TrackedStream::new(stream, session_id, up_ref, down_ref);
-        let stream = Box::new(tracked_stream) as BoxedStream;
+        let stream = Box::new(tracked_stream) as BoxedTrinityTransport;
 
         let mut target_host = host;
 

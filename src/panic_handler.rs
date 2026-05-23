@@ -24,7 +24,12 @@ pub fn init() {
         };
 
         let location = match info.location() {
-            Some(location) => format!("{}:{}:{}", location.file(), location.line(), location.column()),
+            Some(location) => format!(
+                "{}:{}:{}",
+                location.file(),
+                location.line(),
+                location.column()
+            ),
             None => "unknown location".to_string(),
         };
 

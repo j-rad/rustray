@@ -25,6 +25,72 @@ use std::time::{Duration, Instant};
 use tracing::debug;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Markov Chain Jitter
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum FlowState {
+    Idle,
+    Burst,
+    Interactive,
+}
+
+pub struct MarkovChain {
+    transition_matrix: [[f64; 3]; 3],
+    current_state: FlowState,
+}
+
+impl MarkovChain {
+    pub fn new() -> Self {
+        // Transition probabilities [Idle, Burst, Interactive]
+        Self {
+            transition_matrix: [
+                [0.80, 0.05, 0.15], // From Idle
+                [0.10, 0.70, 0.20], // From Burst
+                [0.30, 0.20, 0.50], // From Interactive
+            ],
+            current_state: FlowState::Idle,
+        }
+    }
+
+    pub fn update_state(&mut self) -> FlowState {
+        let mut rng = rand::thread_rng();
+        let u: f64 = rng.r#gen();
+        let mut cumulative = 0.0;
+
+        let row_idx = match self.current_state {
+            FlowState::Idle => 0,
+            FlowState::Burst => 1,
+            FlowState::Interactive => 2,
+        };
+
+        for (i, &prob) in self.transition_matrix[row_idx].iter().enumerate() {
+            cumulative += prob;
+            if u <= cumulative {
+                self.current_state = match i {
+                    0 => FlowState::Idle,
+                    1 => FlowState::Burst,
+                    2 => FlowState::Interactive,
+                    _ => unreachable!(),
+                };
+                break;
+            }
+        }
+        self.current_state
+    }
+
+    pub fn get_delay(&mut self, state: FlowState) -> Duration {
+        let mut rng = rand::thread_rng();
+        let delay_ms = match state {
+            FlowState::Idle => rng.gen_range(200..=500),
+            FlowState::Burst => rng.gen_range(2..=15),
+            FlowState::Interactive => rng.gen_range(20..=200),
+        };
+        Duration::from_millis(delay_ms as u64)
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Carrier profiles
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -72,14 +138,38 @@ impl BehaviorProfile {
         Self {
             name: "instagram_mci".into(),
             ipt_components: vec![
-                GaussianComponent { weight: 0.65, mean: 10.0, std_dev: 4.0 },
-                GaussianComponent { weight: 0.25, mean: 350.0, std_dev: 100.0 },
-                GaussianComponent { weight: 0.10, mean: 1500.0, std_dev: 500.0 },
+                GaussianComponent {
+                    weight: 0.65,
+                    mean: 10.0,
+                    std_dev: 4.0,
+                },
+                GaussianComponent {
+                    weight: 0.25,
+                    mean: 350.0,
+                    std_dev: 100.0,
+                },
+                GaussianComponent {
+                    weight: 0.10,
+                    mean: 1500.0,
+                    std_dev: 500.0,
+                },
             ],
             size_components: vec![
-                GaussianComponent { weight: 0.55, mean: 1200.0, std_dev: 200.0 },
-                GaussianComponent { weight: 0.30, mean: 200.0, std_dev: 80.0 },
-                GaussianComponent { weight: 0.15, mean: 64.0, std_dev: 20.0 },
+                GaussianComponent {
+                    weight: 0.55,
+                    mean: 1200.0,
+                    std_dev: 200.0,
+                },
+                GaussianComponent {
+                    weight: 0.30,
+                    mean: 200.0,
+                    std_dev: 80.0,
+                },
+                GaussianComponent {
+                    weight: 0.15,
+                    mean: 64.0,
+                    std_dev: 20.0,
+                },
             ],
             heartbeat_probability: 0.08,
             padding_range: (32, 256),
@@ -96,14 +186,38 @@ impl BehaviorProfile {
         Self {
             name: "aparat_tci".into(),
             ipt_components: vec![
-                GaussianComponent { weight: 0.70, mean: 5.0, std_dev: 2.0 },
-                GaussianComponent { weight: 0.20, mean: 500.0, std_dev: 150.0 },
-                GaussianComponent { weight: 0.10, mean: 2000.0, std_dev: 800.0 },
+                GaussianComponent {
+                    weight: 0.70,
+                    mean: 5.0,
+                    std_dev: 2.0,
+                },
+                GaussianComponent {
+                    weight: 0.20,
+                    mean: 500.0,
+                    std_dev: 150.0,
+                },
+                GaussianComponent {
+                    weight: 0.10,
+                    mean: 2000.0,
+                    std_dev: 800.0,
+                },
             ],
             size_components: vec![
-                GaussianComponent { weight: 0.70, mean: 1450.0, std_dev: 50.0 },
-                GaussianComponent { weight: 0.20, mean: 100.0, std_dev: 40.0 },
-                GaussianComponent { weight: 0.10, mean: 40.0, std_dev: 10.0 },
+                GaussianComponent {
+                    weight: 0.70,
+                    mean: 1450.0,
+                    std_dev: 50.0,
+                },
+                GaussianComponent {
+                    weight: 0.20,
+                    mean: 100.0,
+                    std_dev: 40.0,
+                },
+                GaussianComponent {
+                    weight: 0.10,
+                    mean: 40.0,
+                    std_dev: 10.0,
+                },
             ],
             heartbeat_probability: 0.05,
             padding_range: (16, 128),
@@ -116,14 +230,38 @@ impl BehaviorProfile {
         Self {
             name: "web_irancell".into(),
             ipt_components: vec![
-                GaussianComponent { weight: 0.50, mean: 15.0, std_dev: 8.0 },
-                GaussianComponent { weight: 0.30, mean: 200.0, std_dev: 80.0 },
-                GaussianComponent { weight: 0.20, mean: 3000.0, std_dev: 1500.0 },
+                GaussianComponent {
+                    weight: 0.50,
+                    mean: 15.0,
+                    std_dev: 8.0,
+                },
+                GaussianComponent {
+                    weight: 0.30,
+                    mean: 200.0,
+                    std_dev: 80.0,
+                },
+                GaussianComponent {
+                    weight: 0.20,
+                    mean: 3000.0,
+                    std_dev: 1500.0,
+                },
             ],
             size_components: vec![
-                GaussianComponent { weight: 0.40, mean: 800.0, std_dev: 300.0 },
-                GaussianComponent { weight: 0.35, mean: 300.0, std_dev: 100.0 },
-                GaussianComponent { weight: 0.25, mean: 100.0, std_dev: 50.0 },
+                GaussianComponent {
+                    weight: 0.40,
+                    mean: 800.0,
+                    std_dev: 300.0,
+                },
+                GaussianComponent {
+                    weight: 0.35,
+                    mean: 300.0,
+                    std_dev: 100.0,
+                },
+                GaussianComponent {
+                    weight: 0.25,
+                    mean: 100.0,
+                    std_dev: 50.0,
+                },
             ],
             heartbeat_probability: 0.12,
             padding_range: (64, 512),
@@ -162,9 +300,12 @@ impl CarrierType {
             let fields: Vec<&str> = line.split_whitespace().collect();
             if fields.len() >= 2 && fields[1] == "00000000" {
                 let iface = fields[0];
-                if iface.starts_with("rmnet") || iface.starts_with("wwan") || iface.starts_with("usb") {
+                if iface.starts_with("rmnet")
+                    || iface.starts_with("wwan")
+                    || iface.starts_with("usb")
+                {
                     // Mobile connection — try to distinguish MCI vs Irancell by IP prefix.
-                    if let Ok(addrs) = std::fs::read_to_string(format!("/proc/net/if_inet6")) {
+                    if let Ok(addrs) = std::fs::read_to_string("/proc/net/if_inet6") {
                         // MCI typically uses 2.144.x.x-2.191.x.x, 5.52.x.x-5.63.x.x ranges
                         // Irancell uses 151.232.x.x-151.255.x.x ranges
                         // This is a heuristic; actual detection would use PLMN/MCC-MNC.
@@ -308,7 +449,7 @@ impl BehaviorSynthesizer {
             // Too random — add some structured padding (repeating pattern).
             let pattern_len = rng.gen_range(8..=32);
             let pattern_byte = rng.r#gen::<u8>();
-            data.extend(std::iter::repeat(pattern_byte).take(pattern_len));
+            data.extend(std::iter::repeat_n(pattern_byte, pattern_len));
         }
     }
 
@@ -365,7 +506,10 @@ mod tests {
         let ipt_sum: f64 = profile.ipt_components.iter().map(|c| c.weight).sum();
         let size_sum: f64 = profile.size_components.iter().map(|c| c.weight).sum();
         assert!((ipt_sum - 1.0).abs() < 0.001, "IPT weights must sum to 1.0");
-        assert!((size_sum - 1.0).abs() < 0.001, "Size weights must sum to 1.0");
+        assert!(
+            (size_sum - 1.0).abs() < 0.001,
+            "Size weights must sum to 1.0"
+        );
     }
 
     #[test]
@@ -405,7 +549,7 @@ mod tests {
         let synth = BehaviorSynthesizer::new(BehaviorProfile::instagram_mci());
         for _ in 0..100 {
             let size = synth.sample_payload_size();
-            assert!(size >= 16 && size <= 1500, "Size {} out of bounds", size);
+            assert!((16..=1500).contains(&size), "Size {} out of bounds", size);
         }
     }
 
@@ -426,7 +570,11 @@ mod tests {
     fn test_entropy_computation_uniform() {
         let data = vec![42u8; 100];
         let entropy = BehaviorSynthesizer::compute_entropy(&data);
-        assert!(entropy < 0.01, "Single-value data should have ~0 entropy: {}", entropy);
+        assert!(
+            entropy < 0.01,
+            "Single-value data should have ~0 entropy: {}",
+            entropy
+        );
     }
 
     #[test]
@@ -435,7 +583,11 @@ mod tests {
         rand::thread_rng().fill(&mut data[..]);
         let entropy = BehaviorSynthesizer::compute_entropy(&data);
         // Random data should have ~8 bits of entropy.
-        assert!(entropy > 6.0, "Random data should have high entropy: {}", entropy);
+        assert!(
+            entropy > 6.0,
+            "Random data should have high entropy: {}",
+            entropy
+        );
     }
 
     #[test]
@@ -445,7 +597,10 @@ mod tests {
         let before = BehaviorSynthesizer::compute_entropy(&data);
         synth.shape_entropy(&mut data);
         let after = BehaviorSynthesizer::compute_entropy(&data);
-        assert!(after > before, "Shaping should increase entropy for uniform data");
+        assert!(
+            after > before,
+            "Shaping should increase entropy for uniform data"
+        );
     }
 
     #[test]

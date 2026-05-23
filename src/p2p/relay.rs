@@ -82,9 +82,7 @@ impl RelayListener {
             let max_peers = self.config.max_peers;
 
             tokio::spawn(async move {
-                if let Err(e) =
-                    Self::handle_peer(stream, addr, psk_key, peers, max_peers).await
-                {
+                if let Err(e) = Self::handle_peer(stream, addr, psk_key, peers, max_peers).await {
                     debug!("Peer {} auth failed: {}", addr, e);
                 }
             });
@@ -154,10 +152,7 @@ impl RelayListener {
     }
 
     /// Authenticate as a client to a relay.
-    pub async fn connect_to_relay(
-        addr: &str,
-        psk: &str,
-    ) -> io::Result<TcpStream> {
+    pub async fn connect_to_relay(addr: &str, psk: &str) -> io::Result<TcpStream> {
         let mut stream = TcpStream::connect(addr).await?;
         let psk_key = Self::derive_psk_key(psk);
 

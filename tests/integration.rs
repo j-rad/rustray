@@ -41,7 +41,8 @@ mod tests {
         }
 
         std::fs::create_dir_all("bin").unwrap();
-        let url = "https://github.com/RustRay/RustRay/releases/download/v25.12.8/RustRay-linux-64.zip";
+        let url =
+            "https://github.com/RustRay/RustRay/releases/download/v25.12.8/RustRay-linux-64.zip";
         let client = reqwest::Client::new();
         let resp = client
             .get(url)

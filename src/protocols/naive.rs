@@ -5,8 +5,9 @@ use crate::config::LevelPolicy;
 use crate::config::{NaiveOutboundSettings, NaiveSettings};
 use crate::error::Result;
 use crate::outbounds::Outbound;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
+use tokio::io::{AsyncRead, AsyncWrite};
 use crate::router::Router;
-use crate::transport::BoxedStream;
 use async_trait::async_trait;
 use http_body_util::Empty;
 use hyper::body::Bytes;
@@ -21,7 +22,7 @@ use tracing::info;
 pub async fn listen_stream(
     _router: Arc<Router>,
     _state: Arc<StatsManager>,
-    _stream: BoxedStream,
+    _stream: BoxedTrinityTransport,
     _settings: NaiveSettings,
 ) -> Result<()> {
     info!("Naive: Handling inbound stream (H2 Server)");
@@ -54,7 +55,7 @@ impl NaiveOutbound {
 impl Outbound for NaiveOutbound {
     async fn handle(
         &self,
-        mut in_stream: BoxedStream,
+        mut in_stream: BoxedTrinityTransport,
         host: String,
         port: u16,
         _policy: Arc<LevelPolicy>,
@@ -64,7 +65,7 @@ impl Outbound for NaiveOutbound {
         Ok(())
     }
 
-    async fn dial(&self, host: String, port: u16) -> Result<BoxedStream> {
+    async fn dial(&self, host: String, port: u16) -> Result<BoxedTrinityTransport> {
         info!(
             "Naive: Connecting to proxy at {}:{} for {}:{}",
             self.settings.address, self.settings.port, host, port
@@ -106,9 +107,27 @@ impl Outbound for NaiveOutbound {
         if res.status().is_success() {
             // 4. Upgrade/Tunnel
             let upgraded = hyper::upgrade::on(res).await?;
-            Ok(Box::new(TokioIo::new(upgraded)) as BoxedStream)
+            let io = TokioIo::new(upgraded);
+            Ok(Box::new(io) as BoxedTrinityTransport)
         } else {
             Err(anyhow::anyhow!("Naive CONNECT failed: {}", res.status()))
         }
+    }
+}
+
+impl<T: hyper::rt::Read + hyper::rt::Write + Unpin + Send + 'static> TrinityTransport for TokioIo<T> {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, _new_carrier: BoxedTrinityTransport) -> std::io::Result<()> {
+        Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "TokioIo: switch_carrier not supported"))
+    }
+
+    fn apply_fragmentation(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+
+    fn handover(self, _new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Err(anyhow::anyhow!("TokioIo: handover not supported"))
     }
 }

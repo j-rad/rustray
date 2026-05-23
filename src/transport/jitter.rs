@@ -24,7 +24,7 @@ use std::collections::VecDeque;
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::time::Sleep;
 use tracing::debug;
@@ -183,6 +183,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin + Send> JitteredStream<S> {
 
     /// Generate the next jitter delay based on the current config and mode.
     fn next_jitter(&self) -> Duration {
+        if crate::app::power_core::is_shaping_disabled() {
+            return Duration::ZERO;
+        }
+
         let mut rng = rand::thread_rng();
         let ms = if self.config.aparat_mimicry {
             AparatProfile::next_burst_delay_ms()
@@ -338,10 +342,7 @@ pub fn apply_tcp_window_shrink(fd: std::os::unix::io::RawFd, window_size: u32) -
     use std::os::fd::BorrowedFd;
     let borrowed_fd = unsafe { BorrowedFd::borrow_raw(fd) };
     setsockopt(&borrowed_fd, RcvBuf, &(window_size as usize)).map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::Other,
-            format!("Failed to set SO_RCVBUF to {}: {}", window_size, e),
-        )
+        io::Error::other(format!("Failed to set SO_RCVBUF to {}: {}", window_size, e))
     })?;
     debug!("TCP window shrunk to {} bytes on fd {}", window_size, fd);
     Ok(())
@@ -419,7 +420,7 @@ mod tests {
     fn test_aparat_burst_delay_in_range() {
         for _ in 0..100 {
             let delay = AparatProfile::next_burst_delay_ms();
-            assert!(delay >= 1 && delay <= 800, "Delay {} out of range", delay);
+            assert!((1..=800).contains(&delay), "Delay {} out of range", delay);
         }
     }
 
@@ -427,7 +428,7 @@ mod tests {
     fn test_aparat_burst_count_in_range() {
         for _ in 0..100 {
             let count = AparatProfile::burst_packet_count();
-            assert!(count >= 4 && count <= 16, "Count {} out of range", count);
+            assert!((4..=16).contains(&count), "Count {} out of range", count);
         }
     }
 

@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package rustray.api.control;
+
+service ControlService {
+  rpc PushDeltaUpdate(stream DeltaRequest) returns (stream DeltaResponse);
+  rpc BroadcastEmergencyGhost(EmergencyRequest) returns (EmergencyResponse);
+  rpc VerifyConsistency(ConsistencyRequest) returns (ConsistencyResponse);
+}
+
+message DeltaRequest {
+  string json_patch = 1;
+}
+
+message DeltaResponse {
+  bool success = 1;
+  string error = 2;
+  string current_config_hash = 3;
+}
+
+message EmergencyRequest {
+  enum Mode {
+    NORMAL = 0;
+    WS_CDN = 1;
+    DNS_BEACON = 2;
+  }
+  Mode mode = 1;
+  string region = 2;
+}
+
+message EmergencyResponse {
+  bool success = 1;
+}
+
+message ConsistencyRequest {
+  string expected_hash = 1;
+}
+
+message ConsistencyResponse {
+  bool match = 1;
+  string actual_hash = 2;
+}

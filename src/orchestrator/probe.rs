@@ -15,7 +15,7 @@ pub trait AsyncStream: AsyncRead + AsyncWrite {}
 impl<T: AsyncRead + AsyncWrite> AsyncStream for T {}
 
 /// Result of a transport probe.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ProbeResult {
     /// Transport name
     pub name: String,
@@ -68,11 +68,8 @@ impl Default for ProbeConfig {
 pub type TransportConnectFn = Box<
     dyn Fn() -> std::pin::Pin<
             Box<
-                dyn std::future::Future<
-                        Output = io::Result<
-                            Box<dyn AsyncStream + Unpin + Send>,
-                        >,
-                    > + Send,
+                dyn std::future::Future<Output = io::Result<Box<dyn AsyncStream + Unpin + Send>>>
+                    + Send,
             >,
         > + Send
         + Sync,
@@ -99,11 +96,7 @@ impl TransportProber {
     pub async fn race(
         &self,
         transports: &[NamedTransport],
-    ) -> Option<(
-        String,
-        Box<dyn AsyncStream + Unpin + Send>,
-        Duration,
-    )> {
+    ) -> Option<(String, Box<dyn AsyncStream + Unpin + Send>, Duration)> {
         if transports.is_empty() {
             return None;
         }
@@ -152,10 +145,7 @@ impl TransportProber {
     }
 
     /// Probe a single transport and return the result.
-    pub async fn probe_single(
-        &self,
-        transport: &NamedTransport,
-    ) -> ProbeResult {
+    pub async fn probe_single(&self, transport: &NamedTransport) -> ProbeResult {
         let probe_timeout = Duration::from_millis(self.config.timeout_ms);
         let start = std::time::Instant::now();
 
@@ -174,7 +164,7 @@ impl TransportProber {
                     latency: start.elapsed(),
                     error: Some(e.to_string()),
                 }
-            },
+            }
             Err(_) => ProbeResult {
                 name: transport.name.clone(),
                 success: false,

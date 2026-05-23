@@ -4,17 +4,17 @@
 //! Uses DoH (DNS over HTTPS) and recursive DNS fallback to securely scan
 //! TXT records for dynamic infrastructure updates.
 
-use hickory_resolver::{
-    config::{ResolverConfig, ResolverOpts},
-    TokioAsyncResolver,
-};
-use tracing::{debug, info, warn};
 use aes_gcm::{
-    aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,
+    aead::{Aead, KeyInit},
 };
-use base64::{engine::general_purpose::STANDARD, Engine as _};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
+use hickory_resolver::{
+    TokioAsyncResolver,
+    config::{ResolverConfig, ResolverOpts},
+};
 use std::time::Duration;
+use tracing::{debug, info, warn};
 
 pub struct BeaconScanner {
     resolver: TokioAsyncResolver,
@@ -28,9 +28,9 @@ impl BeaconScanner {
         let config = ResolverConfig::google();
         let mut opts = ResolverOpts::default();
         opts.timeout = Duration::from_secs(5);
-        
+
         let resolver = TokioAsyncResolver::tokio(config, opts);
-        
+
         Self { resolver, key }
     }
 
@@ -50,21 +50,21 @@ impl BeaconScanner {
             let record_str = txt.to_string();
             // Expected format: v=spf1 include:_spf.example.com ~all OR encrypted payload
             // We'll try to decode any base64 payload we find.
-            if let Ok(decoded) = STANDARD.decode(&record_str) {
-                if decoded.len() > 12 {
-                    let nonce = Nonce::from_slice(&decoded[..12]);
-                    let ciphertext = &decoded[12..];
-                    
-                    if let Ok(plaintext) = cipher.decrypt(nonce, ciphertext) {
-                        if let Ok(ip) = String::from_utf8(plaintext) {
-                            info!("Decrypted bridge IP from TXT record: {}", ip);
-                            return Some(ip);
-                        }
-                    }
+            if let Ok(decoded) = STANDARD.decode(&record_str)
+                && decoded.len() > 12
+            {
+                let nonce = Nonce::from_slice(&decoded[..12]);
+                let ciphertext = &decoded[12..];
+
+                if let Ok(plaintext) = cipher.decrypt(nonce, ciphertext)
+                    && let Ok(ip) = String::from_utf8(plaintext)
+                {
+                    info!("Decrypted bridge IP from TXT record: {}", ip);
+                    return Some(ip);
                 }
             }
         }
-        
+
         debug!("No valid beacon found in {} TXT records", domain);
         None
     }

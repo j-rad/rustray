@@ -17,6 +17,8 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::sync::mpsc;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
+use crate::error::Result;
 
 pub struct SplitHttpSettings {
     pub path: String,
@@ -26,7 +28,7 @@ pub struct SplitHttpSettings {
 /// A wrapper around a TCP/TLS stream that tunnels data via SplitHTTP.
 pub struct SplitHttpStream {
     /// Channel to send data chunks to the upload task.
-    tx_upload: mpsc::Sender<Result<Frame<Bytes>, io::Error>>,
+    tx_upload: mpsc::Sender<std::result::Result<Frame<Bytes>, io::Error>>,
     /// Buffer for incoming data from the download task.
     read_buf: BytesMut,
     /// Receiver for incoming data frames.
@@ -137,23 +139,20 @@ impl SplitHttpStream {
                         match frame_res {
                             Ok(frame) => {
                                 if let Ok(data) = frame.into_data()
-                                    && tx_download.send(Ok(data)).await.is_err() {
-                                        break;
-                                    }
+                                    && tx_download.send(Ok(data)).await.is_err()
+                                {
+                                    break;
+                                }
                             }
                             Err(e) => {
-                                let _ = tx_download
-                                    .send(Err(io::Error::other(e)))
-                                    .await;
+                                let _ = tx_download.send(Err(io::Error::other(e))).await;
                                 break;
                             }
                         }
                     }
                 }
                 Err(e) => {
-                    let _ = tx_download
-                        .send(Err(io::Error::other(e)))
-                        .await;
+                    let _ = tx_download.send(Err(io::Error::other(e))).await;
                 }
             }
         });
@@ -180,6 +179,23 @@ impl SplitHttpStream {
             read_buf: BytesMut::new(),
             rx_download,
         })
+    }
+}
+
+impl TrinityTransport for SplitHttpStream {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, _new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        Err(io::Error::new(io::ErrorKind::Other, "SplitHttpStream does not support carrier switching"))
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+
+    fn handover(self, _new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Err(anyhow::anyhow!("SplitHttpStream does not support handover"))
     }
 }
 

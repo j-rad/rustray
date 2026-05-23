@@ -83,9 +83,10 @@ fn is_hashed_filename(path: &str) -> bool {
     // Look for pattern: name-[hash].ext where hash is 8+ hex chars
     if let Some(stem) = path.rsplit('/').next()
         && let Some((name_part, _ext)) = stem.rsplit_once('.')
-            && let Some((_, hash)) = name_part.rsplit_once('-') {
-                return hash.len() >= 8 && hash.chars().all(|c| c.is_ascii_hexdigit());
-            }
+        && let Some((_, hash)) = name_part.rsplit_once('-')
+    {
+        return hash.len() >= 8 && hash.chars().all(|c| c.is_ascii_hexdigit());
+    }
     false
 }
 

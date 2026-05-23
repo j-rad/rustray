@@ -1,7 +1,9 @@
 // benches/dns_codec_bench.rs
 use criterion::{Criterion, criterion_group, criterion_main};
+use rustray::transport::dns_codec::{
+    base32_decode, base32_encode, decode_dns_payload, encode_dns_payload,
+};
 use std::hint::black_box;
-use rustray::transport::dns_codec::{base32_encode, base32_decode, encode_dns_payload, decode_dns_payload};
 
 fn bench_base32_encode(c: &mut Criterion) {
     let mut group = c.benchmark_group("dns_codec");
@@ -51,5 +53,10 @@ fn bench_dns_payload_roundtrip(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_base32_encode, bench_base32_decode, bench_dns_payload_roundtrip);
+criterion_group!(
+    benches,
+    bench_base32_encode,
+    bench_base32_decode,
+    bench_dns_payload_roundtrip
+);
 criterion_main!(benches);

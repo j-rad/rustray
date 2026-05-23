@@ -12,9 +12,7 @@
 //!  3. RFC 1624 checksum correctness: round-trip and known-value tests.
 //!  4. Segment boundary scanning: scanner finds the MSS field in raw SYN bytes.
 
-use rustray::kernel::ghoststream::{
-    rfc1624_checksum_update, sni_split_position, MSS_MAX, MSS_MIN,
-};
+use rustray::kernel::ghoststream::{MSS_MAX, MSS_MIN, rfc1624_checksum_update, sni_split_position};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. Segment-size constraint
@@ -173,8 +171,10 @@ fn parse_mss_from_tcp_options(options: &[u8]) -> Option<u16> {
     while i < options.len() {
         let kind = options[i];
         match kind {
-            0 => break,                                            // End of options
-            1 => { i += 1; }                                      // NOP
+            0 => break, // End of options
+            1 => {
+                i += 1;
+            } // NOP
             2 if i + 3 < options.len() => {
                 let len = options[i + 1] as usize;
                 if len == 4 {
@@ -200,10 +200,12 @@ fn parse_mss_from_tcp_options(options: &[u8]) -> Option<u16> {
 /// Build a minimal TCP options byte sequence containing an MSS option.
 fn build_tcp_options_with_mss(mss: u16) -> Vec<u8> {
     vec![
-        1,           // NOP
-        1,           // NOP
-        2, 4,        // MSS kind, len
-        (mss >> 8) as u8, (mss & 0xFF) as u8,
+        1, // NOP
+        1, // NOP
+        2,
+        4, // MSS kind, len
+        (mss >> 8) as u8,
+        (mss & 0xFF) as u8,
     ]
 }
 
@@ -258,7 +260,7 @@ fn test_simulated_mss_clamp_in_options_buffer() {
 
     let parsed = parse_mss_from_tcp_options(&opts).expect("MSS must be parseable after clamp");
     assert!(
-        parsed >= MSS_MIN && parsed <= MSS_MAX,
+        (MSS_MIN..=MSS_MAX).contains(&parsed),
         "Clamped MSS {} must be in [{}, {}]",
         parsed,
         MSS_MIN,

@@ -6,9 +6,11 @@ use crate::api::rustray::app::stats::command::{
 };
 use crate::app::stats::StatsManager;
 use regex::Regex;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
+use tokio_stream::Stream;
 use tonic::{Request, Response, Status};
 use tracing::{info, warn};
 
@@ -163,5 +165,59 @@ impl StatsService for StatsServiceImpl {
         };
 
         Ok(Response::new(response))
+    }
+
+    type SubscribeStatsStream =
+        Pin<Box<dyn Stream<Item = Result<QueryStatsResponse, Status>> + Send>>;
+
+    async fn subscribe_stats(
+        &self,
+        request: Request<QueryStatsRequest>,
+    ) -> Result<Response<Self::SubscribeStatsStream>, Status> {
+        let req = request.into_inner();
+        let pattern = req.pattern.clone();
+        let reset = req.reset;
+        let stats_manager = self.stats_manager.clone();
+
+        info!("Subscribing to stats with pattern: {}", pattern);
+
+        // Compile regex pattern once to verify it
+        let regex = match Regex::new(&pattern) {
+            Ok(r) => r,
+            Err(e) => {
+                warn!("Invalid regex pattern '{}': {}", pattern, e);
+                return Err(Status::invalid_argument(format!(
+                    "Invalid regex pattern: {}",
+                    e
+                )));
+            }
+        };
+
+        use tokio_stream::StreamExt;
+        let stream = tokio_stream::wrappers::IntervalStream::new(tokio::time::interval(
+            Duration::from_millis(1000),
+        ))
+        .map(move |_| {
+            let mut stats = Vec::new();
+            for entry in stats_manager.counters.iter() {
+                let name = entry.key();
+                if regex.is_match(name) {
+                    let value = if reset {
+                        entry.value().swap(0, Ordering::Relaxed)
+                    } else {
+                        entry.value().load(Ordering::Relaxed)
+                    };
+
+                    stats.push(Stat {
+                        name: name.clone(),
+                        value: value as i64,
+                    });
+                }
+            }
+
+            Ok(QueryStatsResponse { stat: stats })
+        });
+
+        Ok(Response::new(Box::pin(stream) as Self::SubscribeStatsStream))
     }
 }

@@ -1,0 +1,192 @@
+name: Release Build Matrix
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-linux:
+    name: Linux (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+          - i686-unknown-linux-gnu
+          - i686-unknown-linux-musl
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            protobuf-compiler \
+            libprotobuf-dev \
+            libelf-dev \
+            clang \
+            llvm \
+            pkg-config \
+            libssl-dev \
+            nftables
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build Core (All Features)
+        # Verifies compilation for the entire evasion matrix
+        run: cargo build --verbose --features "ebpf quic masque cdn_loop stego shaping"
+
+      - name: Run Core Logic Tests
+        run: cargo test --verbose --lib --bins
+      - name: Install Cross
+        run: cargo install cross
+      - name: Build
+        run: cross build --release --target ${{ matrix.target }}
+
+      - name: Test (32-bit Memory Alignment)
+        if: contains(matrix.target, 'i686')
+        run: cross test --release --target ${{ matrix.target }}
+
+      - name: UPX Compression (32-bit Intel)
+        if: contains(matrix.target, 'i686')
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/${{ matrix.target }}/release/rustray
+          args: --best --lzma
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustray-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/rustray
+
+  build-windows:
+    name: Windows (${{ matrix.target }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-pc-windows-msvc
+          - i686-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Test (32-bit Memory Alignment)
+        if: contains(matrix.target, 'i686')
+        run: cargo test --release --target ${{ matrix.target }}
+
+      - name: UPX Compression (32-bit)
+        if: contains(matrix.target, 'i686')
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/${{ matrix.target }}/release/rustray.exe
+          args: --best --lzma
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustray-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/rustray.exe
+
+  build-macos:
+    name: macOS (${{ matrix.target }})
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-apple-darwin
+          - aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustray-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/rustray
+
+  build-android:
+    name: Android (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - aarch64-linux-android
+          - armv7-linux-androideabi
+          - x86_64-linux-android
+          - i686-linux-android
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Install Cross
+        run: cargo install cross
+      - name: Build
+        run: cross build --release --target ${{ matrix.target }}
+
+      - name: UPX Compression (x86 32-bit)
+        if: contains(matrix.target, 'i686')
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/${{ matrix.target }}/release/rustray
+          args: --best --lzma
+
+      - name: Upload Library (JNI)
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustray-lib-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/librustray.so
+          if-no-files-found: ignore
+
+      - name: Upload Binary (CLI)
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustray-bin-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/rustray
+          if-no-files-found: ignore
+
+  build-ios:
+    name: iOS (Pure Library)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+      - name: Build
+        run: cargo build --release --target aarch64-apple-ios
+      - name: Upload Static Lib
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustray-ios
+          path: target/aarch64-apple-ios/release/librustray.a

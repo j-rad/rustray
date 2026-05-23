@@ -57,6 +57,7 @@ service StatsService {
   rpc QueryStats(QueryStatsRequest) returns (QueryStatsResponse) {}
   rpc GetSysStats(SysStatsRequest) returns (SysStatsResponse) {}
   rpc GetStatsOnlineIpList(GetStatsRequest) returns (GetStatsOnlineIpListResponse) {}
+  rpc SubscribeStats(QueryStatsRequest) returns (stream QueryStatsResponse) {}
 }
 
 message Config {}

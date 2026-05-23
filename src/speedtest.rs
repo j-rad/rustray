@@ -126,7 +126,8 @@ impl SpeedTestEngine {
              Host: speed.cloudflare.com\r\n\
              User-Agent: RustRay-SpeedTest\r\n\
              Connection: close\r\n\
-             \r\n".to_string();
+             \r\n"
+            .to_string();
 
         stream.write_all(request.as_bytes()).await?;
         stream.flush().await?;

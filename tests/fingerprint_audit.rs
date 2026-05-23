@@ -17,8 +17,7 @@
 //! 5. 0% variance in the extension bitmask (all required extensions present)
 
 use rustray::transport::utls::{
-    HostEnvironment, SignatureGenerator, DOMESTIC_REALITY_TARGETS,
-    alpn_for_service,
+    DOMESTIC_REALITY_TARGETS, HostEnvironment, SignatureGenerator, alpn_for_service,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -31,7 +30,10 @@ fn test_ja4_chrome_prefix() {
     let prefix = generator.expected_ja4_prefix();
     // Chrome: t13 + i/d + 15 ciphers + 16 extensions
     assert!(prefix.starts_with("t13"), "Must be TLS 1.3: {}", prefix);
-    assert!(prefix.contains("15"), "Chrome should list ~15 cipher suites");
+    assert!(
+        prefix.contains("15"),
+        "Chrome should list ~15 cipher suites"
+    );
     assert!(prefix.contains("16"), "Chrome should list ~16 extensions");
 }
 
@@ -40,7 +42,10 @@ fn test_ja4_firefox_prefix() {
     let generator = SignatureGenerator::auto().with_fingerprint("firefox");
     let prefix = generator.expected_ja4_prefix();
     assert!(prefix.starts_with("t13"));
-    assert!(prefix.contains("17"), "Firefox should list ~17 cipher suites");
+    assert!(
+        prefix.contains("17"),
+        "Firefox should list ~17 cipher suites"
+    );
 }
 
 #[test]
@@ -48,7 +53,10 @@ fn test_ja4_safari_prefix() {
     let generator = SignatureGenerator::auto().with_fingerprint("safari");
     let prefix = generator.expected_ja4_prefix();
     assert!(prefix.starts_with("t13"));
-    assert!(prefix.contains("12"), "Safari should list ~12 cipher suites");
+    assert!(
+        prefix.contains("12"),
+        "Safari should list ~12 cipher suites"
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -94,7 +102,10 @@ fn test_reality_target_sep_ir() {
     let generator = SignatureGenerator::auto().with_reality_target("sep.ir");
     let ja4 = generator.expected_ja4_prefix();
     // With SNI set, the prefix should contain 'd' (SNI present).
-    assert!(ja4.contains('d'), "Reality target should set SNI present flag");
+    assert!(
+        ja4.contains('d'),
+        "Reality target should set SNI present flag"
+    );
 }
 
 #[test]
@@ -126,13 +137,19 @@ fn test_all_domestic_targets_have_alpn() {
 #[test]
 fn test_alpn_camouflage_web_portal() {
     let alpn = alpn_for_service("melli.ir");
-    assert!(alpn.contains(&"h2".to_string()), "Bank portal should use h2");
+    assert!(
+        alpn.contains(&"h2".to_string()),
+        "Bank portal should use h2"
+    );
 }
 
 #[test]
 fn test_alpn_camouflage_mqtt_endpoint() {
     let alpn = alpn_for_service("mqtt-gateway.industrial-iot.ir");
-    assert!(alpn.contains(&"mqtt".to_string()), "MQTT endpoint should use mqtt ALPN");
+    assert!(
+        alpn.contains(&"mqtt".to_string()),
+        "MQTT endpoint should use mqtt ALPN"
+    );
 }
 
 #[test]
@@ -166,7 +183,7 @@ fn test_extension_bitmask_completeness() {
     // The JA4 prefix encodes the extension count; verify it's >= 14 (minimum for Chrome).
     let prefix = generator.expected_ja4_prefix();
     // Extract the extension count from the prefix (last 2 chars).
-    let ext_count: usize = prefix[prefix.len()-2..].parse().unwrap_or(0);
+    let ext_count: usize = prefix[prefix.len() - 2..].parse().unwrap_or(0);
     assert!(
         ext_count >= REQUIRED_CHROME_EXTENSIONS.len(),
         "Chrome fingerprint must include at least {} extensions, got {}",

@@ -15,6 +15,7 @@
 use crate::config::{FlowSettings, LevelPolicy};
 use crate::error::Result;
 use crate::router::Router;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
 use crate::transport::BoxedStream;
 use aes_gcm::{
     Aes128Gcm, Nonce,
@@ -309,5 +310,25 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for PrefixedReadStream<S> {
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Pin::new(&mut self.inner).poll_shutdown(cx)
+    }
+}
+
+impl<S: TrinityTransport + Unpin + Send + 'static> TrinityTransport for PrefixedReadStream<S> {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        self.inner.switch_carrier(new_carrier)
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        self.inner.apply_fragmentation()
+    }
+
+    fn handover(self, new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Ok(Self {
+            prefix: self.prefix,
+            inner: self.inner.handover(new_tal)?,
+        })
     }
 }

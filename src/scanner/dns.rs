@@ -272,9 +272,10 @@ fn verify_response_integrity(response: &[u8]) -> bool {
     // Simple poisoning check
     for poison in POISONED_IPS {
         if let Ok(ip) = poison.parse::<std::net::Ipv4Addr>()
-            && find_subsequence(response, &ip.octets()).is_some() {
-                return false;
-            }
+            && find_subsequence(response, &ip.octets()).is_some()
+        {
+            return false;
+        }
     }
     true
 }

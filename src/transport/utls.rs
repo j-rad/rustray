@@ -1,5 +1,8 @@
+use rustls::ClientConfig;
+use std::sync::Arc;
+use tokio_rustls::TlsConnector;
 use crate::error::Result;
-use rutls::connector::{RutlsConnector, prebuilt};
+use tracing::warn;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase 2 — JA4+ Alignment & Domestic Mirroring (Reality 2.0)
@@ -26,15 +29,25 @@ impl HostEnvironment {
     /// Auto-detect the current host environment.
     pub fn detect() -> Self {
         #[cfg(target_os = "android")]
-        { return Self::AndroidMobile; }
+        {
+            return Self::AndroidMobile;
+        }
         #[cfg(target_os = "ios")]
-        { return Self::IosDevice; }
+        {
+            return Self::IosDevice;
+        }
         #[cfg(target_os = "linux")]
-        { return Self::LinuxDesktop; }
+        {
+            Self::LinuxDesktop
+        }
         #[cfg(target_os = "windows")]
-        { return Self::WindowsDesktop; }
+        {
+            return Self::WindowsDesktop;
+        }
         #[cfg(target_os = "macos")]
-        { return Self::MacDesktop; }
+        {
+            return Self::MacDesktop;
+        }
         #[cfg(not(any(
             target_os = "android",
             target_os = "ios",
@@ -42,7 +55,9 @@ impl HostEnvironment {
             target_os = "windows",
             target_os = "macos"
         )))]
-        { Self::Unknown }
+        {
+            Self::Unknown
+        }
     }
 
     /// Return the fingerprint string name for this environment.
@@ -66,7 +81,11 @@ pub const DOMESTIC_REALITY_TARGETS: &[(&str, &[&str], &str)] = &[
     ("snapp.ir", &["h2", "http/1.1"], "Snapp Ride-Hailing"),
     ("digikala.com", &["h2", "http/1.1"], "Digikala E-Commerce"),
     ("irna.ir", &["h2", "http/1.1"], "IRNA News Agency"),
-    ("shaparak.ir", &["h2", "http/1.1"], "Shaparak Payment Network"),
+    (
+        "shaparak.ir",
+        &["h2", "http/1.1"],
+        "Shaparak Payment Network",
+    ),
     ("tamin.ir", &["h2", "http/1.1"], "Social Security Portal"),
 ];
 
@@ -116,20 +135,23 @@ impl SignatureGenerator {
     pub fn with_reality_target(mut self, domain: &str) -> Self {
         self.reality_target = Some(domain.to_string());
         // Auto-configure ALPN from the domestic target's known protocols.
-        if let Some((_, alpn, _)) = DOMESTIC_REALITY_TARGETS.iter().find(|(d, _, _)| *d == domain) {
+        if let Some((_, alpn, _)) = DOMESTIC_REALITY_TARGETS
+            .iter()
+            .find(|(d, _, _)| *d == domain)
+        {
             self.alpn_override = Some(alpn.iter().map(|s| s.to_string()).collect());
         }
         self.sni_override = Some(domain.to_string());
         self
     }
 
-    /// Build the RutlsConnector with full JA4+ alignment.
-    pub fn build(&self) -> Result<RutlsConnector> {
+    /// Build the TlsConnector with full JA4+ alignment (simplified to standard rustls).
+    pub fn build(&self) -> Result<TlsConnector> {
         // Determine ALPN from overrides or defaults.
         let alpn = self.alpn_override.clone();
-        let sni = self.sni_override.clone();
+        let _sni = self.sni_override.clone();
 
-        build_custom_connector(alpn, sni)
+        build_custom_connector(alpn, _sni, None)
     }
 
     /// Get the target JA4 hash for this configuration.
@@ -137,7 +159,11 @@ impl SignatureGenerator {
     /// JA4 format: `t<tls_ver>d<sni_present><ciphers_count><extensions_count>_<sorted_cipher_hash>_<sorted_ext_hash>`
     pub fn expected_ja4_prefix(&self) -> String {
         let tls_ver = "13"; // TLS 1.3
-        let sni_present = if self.sni_override.is_some() { "d" } else { "i" };
+        let sni_present = if self.sni_override.is_some() {
+            "d"
+        } else {
+            "i"
+        };
         let cipher_count = match self.fingerprint.as_str() {
             "chrome" => "15",  // Chrome typically offers ~15 cipher suites
             "firefox" => "17", // Firefox offers ~17
@@ -185,92 +211,51 @@ pub fn alpn_for_service(sni: &str) -> Vec<String> {
 // Original connector API (preserved for backward compatibility)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Map string to RutlsConnector
-pub fn get_utls_connector(fingerprint: &str) -> Result<RutlsConnector> {
-    match fingerprint.to_lowercase().as_str() {
-        "chrome" => Ok(prebuilt::chrome_120().map_err(|e| anyhow::anyhow!("uTLS error: {}", e))?),
-        "firefox" => Ok(prebuilt::firefox_120().map_err(|e| anyhow::anyhow!("uTLS error: {}", e))?),
-        "ios" | "safari" => {
-            Ok(prebuilt::safari_ios_17().map_err(|e| anyhow::anyhow!("uTLS error: {}", e))?)
-        }
-        "random" | "randomized" => {
-            Ok(prebuilt::randomized().map_err(|e| anyhow::anyhow!("uTLS error: {}", e))?)
-        }
-        _ => {
-            // Default to randomized if the fingerprint is unknown.
-            Err(anyhow::anyhow!("Unknown uTLS fingerprint: {}", fingerprint))
-        }
-    }
+// Map string to TlsConnector
+pub fn get_utls_connector(fingerprint: &str) -> Result<TlsConnector> {
+    warn!("get_utls_connector: uTLS fingerprints disabled. Using standard rustls for {}", fingerprint);
+    build_custom_connector(None, None, None)
 }
 
+/// Build a custom TlsConnector with basic ALPN and SNI settings.
 pub fn build_custom_connector(
     alpn: Option<Vec<String>>,
+    _sni: Option<String>,
+    pqc: Option<&crate::config::PqcSettings>,
+) -> Result<TlsConnector> {
+    let mut root_store = rustls::RootCertStore::empty();
+    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+
+    let mut provider = rustls::crypto::aws_lc_rs::default_provider();
+    if let Some(pqc_settings) = pqc
+        && pqc_settings.enabled
+    {
+        provider.kx_groups = vec![crate::transport::pqc::HybridGroup::X25519MlKem768.rustls_group()];
+    }
+
+    let mut config = ClientConfig::builder_with_provider(Arc::new(provider))
+        .with_safe_default_protocol_versions()
+        .map_err(|e| anyhow::anyhow!("uTLS: Failed to set protocol versions: {}", e))?
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
+    
+    config.alpn_protocols = alpn
+        .unwrap_or_else(|| vec!["h2".to_string(), "http/1.1".to_string()])
+        .into_iter()
+        .map(|p| p.into_bytes())
+        .collect();
+
+    Ok(TlsConnector::from(Arc::new(config)))
+}
+
+/// Build a TlsConnector from a specific TlsProfile template.
+pub fn build_from_profile(
+    _profile: &crate::transport::tls_profile::TlsProfile,
+    alpn: Vec<String>,
     sni: Option<String>,
-) -> Result<RutlsConnector> {
-    use rutls::{ClientHelloSpec, ExtensionId, GreaseStyle};
-
-    // Build a custom ClientHelloSpec with advanced fingerprinting features
-    let mut spec = ClientHelloSpec::default();
-
-    // 1. Configure ALPN
-    if let Some(protocols) = alpn {
-        spec.alpn_protocols = protocols.into_iter().map(|p| p.into_bytes()).collect();
-    } else {
-        // Default to h2 and http/1.1 for stealth
-        spec.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
-    }
-
-    // 2. Configure extensions with realistic browser-like ordering
-    // This matches Chrome 120+ JA4 extension ordering exactly.
-    spec.extensions = vec![
-        ExtensionId::Grease,     // GREASE at start (Chrome-like)
-        ExtensionId::ServerName, // SNI
-        ExtensionId::ExtendedMasterSecret,
-        ExtensionId::RenegotiationInfo,
-        ExtensionId::SupportedGroups,
-        ExtensionId::EcPointFormats,
-        ExtensionId::SessionTicket,
-        ExtensionId::ApplicationLayerProtocolNegotiation, // ALPN
-        ExtensionId::StatusRequest,
-        ExtensionId::SignatureAlgorithms,
-        ExtensionId::SignedCertificateTimestamp,
-        ExtensionId::KeyShare,
-        ExtensionId::SupportedVersions,
-        ExtensionId::PskKeyExchangeModes,
-        ExtensionId::Grease,  // Another GREASE
-        ExtensionId::Padding, // Padding at end
-    ];
-
-    // 3. Enable GREASE for stealth (mimics Chrome)
-    spec.grease_style = GreaseStyle::Random;
-
-    // 4. Configure supported versions (TLS 1.3 and 1.2)
-    spec.supported_versions = vec![0x0304, 0x0303]; // TLS 1.3, TLS 1.2
-
-    // 5. Enable padding to make ClientHello larger (anti-fingerprinting)
-    // Target ~512 bytes which is common for Chrome
-    spec.padding_target = Some(512);
-
-    // 6. Build the connector with our custom spec
-    let connector = RutlsConnector::with_fingerprint(spec)
-        .map_err(|e| anyhow::anyhow!("Failed to build custom Rutls connector: {}", e))?;
-
-    // 7. Apply SNI if provided (crucial fix: previously ignored)
-    if let Some(server_name) = sni {
-        // rutls should handle SNI via the connect_async method, but we configure the
-        // underlying configuration to ensure it knows about it if needed for ECH or logic.
-        // However, standard rustls/rutls flow takes SNI at connection time.
-        // We'll let `connector.connect_async` handle the actual SNI injection,
-        // but if rutls exposes a way to preset it or validation, we'd do it here.
-        // For now, implicit handling in connect_async is standard.
-        //
-        // NOTE: If we wanted to "Wire the rutls::ExtensionBuilder", we would manually construct
-        // extensions here if `rutls` exposed a builder API. Since we don't see it,
-        // weStick to ClientHelloSpec which generates them.
-        let _ = server_name; // Kept for future ECH integration
-    }
-
-    Ok(connector)
+    pqc: Option<&crate::config::PqcSettings>,
+) -> Result<TlsConnector> {
+    build_custom_connector(Some(alpn), sni, pqc)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -296,7 +281,7 @@ impl TlsClientFingerprint {
 }
 
 // Legacy helper needed for compilation compatibility
-pub fn make_fingerprinted_config(_fp: TlsClientFingerprint) -> Result<RutlsConnector> {
+pub fn make_fingerprinted_config(_fp: TlsClientFingerprint) -> Result<TlsConnector> {
     Err(anyhow::anyhow!("Deprecated function called"))
 }
 
@@ -320,13 +305,15 @@ mod tests {
     fn test_signature_generator_auto() {
         let generator = SignatureGenerator::auto();
         let ja4 = generator.expected_ja4_prefix();
-        assert!(ja4.starts_with("t13"), "JA4 prefix should start with t13 (TLS 1.3)");
+        assert!(
+            ja4.starts_with("t13"),
+            "JA4 prefix should start with t13 (TLS 1.3)"
+        );
     }
 
     #[test]
     fn test_signature_generator_with_reality() {
-        let generator = SignatureGenerator::auto()
-            .with_reality_target("sep.ir");
+        let generator = SignatureGenerator::auto().with_reality_target("sep.ir");
         assert_eq!(generator.sni_override.as_deref(), Some("sep.ir"));
         assert!(generator.alpn_override.is_some());
         let alpn = generator.alpn_override.as_ref().unwrap();

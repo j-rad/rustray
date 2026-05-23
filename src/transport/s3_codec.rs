@@ -1,6 +1,6 @@
 // src/transport/s3_codec.rs
 use crate::error::Result;
-use bytes::{BufMut, BytesMut};
+use bytes::BytesMut;
 use rand::RngCore;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -9,6 +9,12 @@ const BACKUP_HEADER_MAGIC: &[u8] = b"ENT_BKP_V2_";
 
 pub struct S3Codec {
     buffer: BytesMut,
+}
+
+impl Default for S3Codec {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl S3Codec {

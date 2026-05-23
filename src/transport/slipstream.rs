@@ -15,6 +15,7 @@ use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::UdpSocket;
 use tracing::{debug, error};
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
 
 // Constants
 const DNS_HEADER_SIZE: usize = 12;
@@ -290,6 +291,21 @@ impl AsyncWrite for SlipstreamTunnel {
         Pin::new(&mut self.send)
             .poll_shutdown(cx)
             .map_err(Into::into)
+    }
+}
+
+impl TrinityTransport for SlipstreamTunnel {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, _new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        Err(io::Error::new(io::ErrorKind::Unsupported, "SlipstreamTunnel: hot-swap not supported"))
+    }
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+    fn handover(self, _new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Ok(self)
     }
 }
 

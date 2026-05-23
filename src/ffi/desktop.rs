@@ -54,10 +54,11 @@ fn handle_desktop_events(
     runtime.spawn(async move {
         while let Some(event) = event_rx.recv().await {
             if let StreamEvent::TcpConnect {
-                    key,
-                    stream_tx,
-                    mut stream_rx,
-                } = event {
+                key,
+                stream_tx,
+                mut stream_rx,
+            } = event
+            {
                 let target_addr = key.dst_addr;
                 let target_port = key.dst_port;
                 let socks_target = socks_addr.clone();
@@ -125,8 +126,7 @@ fn handle_desktop_events(
                                     match ro.read(&mut buf).await {
                                         Ok(0) => break,
                                         Ok(n) => {
-                                            if stream_tx.send(buf[..n].to_vec()).await.is_err()
-                                            {
+                                            if stream_tx.send(buf[..n].to_vec()).await.is_err() {
                                                 break;
                                             }
                                         }

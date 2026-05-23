@@ -11,8 +11,8 @@
 //! criterion threshold of "< 1% international window" corresponds to keeping
 //! the overhead-per-byte ratio below 0.01.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use rustray::kernel::ghoststream::{rfc1624_checksum_update, sni_split_position, MSS_MAX, MSS_MIN};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use rustray::kernel::ghoststream::{MSS_MAX, MSS_MIN, rfc1624_checksum_update, sni_split_position};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers

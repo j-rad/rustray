@@ -83,15 +83,9 @@ impl Orchestrator {
     }
 
     /// Initialize by racing all transports and selecting the best one.
-    pub async fn initialize(
-        &self,
-        transports: &[NamedTransport],
-    ) -> io::Result<()> {
-        let result: (String, Box<dyn AsyncStream + Unpin + Send>, Duration) = self
-            .prober
-            .race(transports)
-            .await
-            .ok_or_else(|| {
+    pub async fn initialize(&self, transports: &[NamedTransport]) -> io::Result<()> {
+        let result: (String, Box<dyn AsyncStream + Unpin + Send>, Duration) =
+            self.prober.race(transports).await.ok_or_else(|| {
                 io::Error::new(io::ErrorKind::ConnectionRefused, "All transports failed")
             })?;
 
@@ -111,19 +105,16 @@ impl Orchestrator {
     }
 
     /// Perform a hot-swap failover to a new transport.
-    pub async fn failover(
-        &self,
-        transports: &[NamedTransport],
-    ) -> io::Result<()> {
+    pub async fn failover(&self, transports: &[NamedTransport]) -> io::Result<()> {
         warn!("Orchestrator: initiating failover...");
 
         // 1. Race new transports
-        let result: (String, Box<dyn AsyncStream + Unpin + Send>, Duration) = self
-            .prober
-            .race(transports)
-            .await
-            .ok_or_else(|| {
-                io::Error::new(io::ErrorKind::ConnectionRefused, "All failover transports failed")
+        let result: (String, Box<dyn AsyncStream + Unpin + Send>, Duration) =
+            self.prober.race(transports).await.ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::ConnectionRefused,
+                    "All failover transports failed",
+                )
             })?;
 
         let (name, stream, latency) = result;
@@ -148,7 +139,10 @@ impl Orchestrator {
             if let Some(ref mut transport) = *active {
                 use tokio::io::AsyncWriteExt;
                 if let Err(e) = transport.stream.write_all(&drained).await {
-                    warn!("Orchestrator: failed to drain buffer to new transport: {}", e);
+                    warn!(
+                        "Orchestrator: failed to drain buffer to new transport: {}",
+                        e
+                    );
                 } else {
                     debug!(
                         "Orchestrator: drained {} bytes to new transport",

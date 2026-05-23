@@ -1,6 +1,5 @@
-// src/transport/grpc.rs
 use crate::error::Result;
-use crate::transport::BoxedStream;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
 use bytes::Bytes;
 use futures::stream::StreamExt;
 use std::io;
@@ -53,7 +52,7 @@ use proto::Hunk;
 
 impl GrpcStream {
     /// Connects to a gRPC endpoint and establishes a streaming tunnel.
-    pub async fn connect(address: String, config: GrpcConfig) -> Result<BoxedStream> {
+    pub async fn connect(address: String, config: GrpcConfig) -> Result<BoxedTrinityTransport> {
         let endpoint = Endpoint::from_shared(address.clone())?
             .timeout(config.idle_timeout)
             .keep_alive_timeout(config.health_check_timeout)
@@ -109,7 +108,24 @@ impl GrpcStream {
             tx_outbound: tx,
             rx_inbound: std::sync::Mutex::new(response_stream),
             read_buf: Bytes::new(),
-        }))
+        }) as BoxedTrinityTransport)
+    }
+}
+
+impl TrinityTransport for GrpcStream {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, _new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        Err(io::Error::new(io::ErrorKind::Unsupported, "GrpcStream: switch_carrier not supported"))
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+
+    fn handover(self, _new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Err(anyhow::anyhow!("GrpcStream: handover not supported"))
     }
 }
 

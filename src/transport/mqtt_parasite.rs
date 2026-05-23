@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 use tokio_util::sync::PollSender;
 use tracing::{debug, warn};
 use uuid::Uuid;
@@ -40,8 +40,9 @@ impl MqttParasiteTunnel {
 
         let session_id = Uuid::new_v4().to_string().replace("-", "");
         let client_id = settings.client_id.as_deref().unwrap_or("industrial_plc_01");
-        
-        let mut mqtt_options = MqttOptions::new(format!("{}_{}", client_id, &session_id[..8]), host, port);
+
+        let mut mqtt_options =
+            MqttOptions::new(format!("{}_{}", client_id, &session_id[..8]), host, port);
         mqtt_options.set_keep_alive(Duration::from_secs(60));
         mqtt_options.set_clean_session(true);
 
@@ -52,9 +53,9 @@ impl MqttParasiteTunnel {
         // e.g. factory/mri/telemetry/up/session_id
         let upload_topic = format!("{}/up/{}", settings.upload_topic, session_id);
         let download_topic = format!("{}/down/{}", settings.download_topic, session_id);
-        
+
         let (tx, rx) = mpsc::channel(128);
-        
+
         let (client, mut eventloop) = AsyncClient::new(mqtt_options, 128);
 
         let qos = match settings.qos {
@@ -64,11 +65,14 @@ impl MqttParasiteTunnel {
         };
 
         client.subscribe(&download_topic, qos).await?;
-        
-        debug!("Flow-J MQTT Parasite: Connected. Subscribed to {}", download_topic);
+
+        debug!(
+            "Flow-J MQTT Parasite: Connected. Subscribed to {}",
+            download_topic
+        );
 
         let download_topic_clone = download_topic.clone();
-        
+
         tokio::spawn(async move {
             loop {
                 match eventloop.poll().await {
@@ -90,7 +94,7 @@ impl MqttParasiteTunnel {
                 }
             }
         });
-        
+
         Ok(Self {
             client,
             session_id,
@@ -103,11 +107,13 @@ impl MqttParasiteTunnel {
 
     pub async fn send(&self, data: &[u8]) -> Result<()> {
         let framed = Self::frame_data(data);
-        
+
         for chunk in framed.chunks(MAX_MQTT_PAYLOAD) {
             let wrapped_payload = self.create_industrial_payload(chunk);
-            self.client.publish(&self.upload_topic, QoS::AtLeastOnce, false, wrapped_payload).await?;
-            
+            self.client
+                .publish(&self.upload_topic, QoS::AtLeastOnce, false, wrapped_payload)
+                .await?;
+
             // Match industrial hardware heartbeat (50ms - 100ms interval) to blend in
             let heartbeat_delay = rand::thread_rng().gen_range(50..=100);
             tokio::time::sleep(Duration::from_millis(heartbeat_delay)).await;
@@ -121,16 +127,16 @@ impl MqttParasiteTunnel {
             None => Err(anyhow::anyhow!("MQTT parasite receive channel closed")),
         }
     }
-    
+
     // Formatting & Obfuscation
-    
+
     fn create_industrial_payload(&self, data: &[u8]) -> Vec<u8> {
         let b64_data = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, data);
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_millis();
-            
+
         // Disguise as factory telemetry JSON
         let json = format!(
             r#"{{"sensor_id":"{}","ts_ms":{},"volt_mv":{},"stat":"ok","payload":"{}"}}"#,
@@ -141,16 +147,18 @@ impl MqttParasiteTunnel {
         );
         json.into_bytes()
     }
-    
+
     fn extract_payload(wrapped: &[u8]) -> Vec<u8> {
-        if let Ok(json_str) = std::str::from_utf8(wrapped) {
-            if let Some(start) = json_str.find(r#""payload":""#) {
-                let start = start + 11;
-                if let Some(end) = json_str[start..].find('"') {
-                    let b64 = &json_str[start..start + end];
-                    if let Ok(decoded) = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, b64) {
-                        return decoded;
-                    }
+        if let Ok(json_str) = std::str::from_utf8(wrapped)
+            && let Some(start) = json_str.find(r#""payload":""#)
+        {
+            let start = start + 11;
+            if let Some(end) = json_str[start..].find('"') {
+                let b64 = &json_str[start..start + end];
+                if let Ok(decoded) =
+                    base64::Engine::decode(&base64::engine::general_purpose::STANDARD, b64)
+                {
+                    return decoded;
                 }
             }
         }
@@ -187,7 +195,7 @@ pub struct MqttParasiteStream {
 impl MqttParasiteStream {
     pub fn new(tunnel: MqttParasiteTunnel) -> Self {
         let tunnel = Arc::new(Mutex::new(tunnel));
-        
+
         let (read_tx, read_rx) = mpsc::channel::<Vec<u8>>(128);
         let (write_tx_inner, mut write_rx) = mpsc::channel::<Vec<u8>>(128);
 
@@ -211,7 +219,9 @@ impl MqttParasiteStream {
                 };
                 match data_result {
                     Ok(data) if !data.is_empty() => {
-                        if read_tx.send(data).await.is_err() { break; }
+                        if read_tx.send(data).await.is_err() {
+                            break;
+                        }
                     }
                     Ok(_) => tokio::time::sleep(Duration::from_millis(10)).await,
                     Err(e) => {

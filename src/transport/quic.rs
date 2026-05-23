@@ -7,7 +7,7 @@
 
 use crate::config::Certificate;
 use crate::error::Result;
-use crate::transport::BoxedStream;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
 use quiche::Config as QuicheConfig;
 use ring::rand::{SecureRandom, SystemRandom};
 use std::collections::HashMap;
@@ -38,6 +38,8 @@ pub struct QuicListener {
 struct QuicConfigBuilder {
     cert_file: Option<String>,
     key_file: Option<String>,
+    pqc_enabled: bool,
+    params: Option<crate::config::QuicParams>,
 }
 
 impl QuicConfigBuilder {
@@ -49,19 +51,54 @@ impl QuicConfigBuilder {
             config.load_priv_key_from_pem_file(key)?;
         }
 
-        config.set_application_protos(&[b"h3", b"hy2", b"tuic-v5"])?;
-        config.set_max_idle_timeout(IDLE_TIMEOUT_MS);
+        config.set_application_protos(&[b"h3"])?;
+        
+        let idle_timeout = self.params.as_ref()
+            .and_then(|p| p.max_idle_timeout)
+            .unwrap_or(IDLE_TIMEOUT_MS / 1000);
+        config.set_max_idle_timeout(idle_timeout * 1000);
+
         config.set_max_recv_udp_payload_size(MAX_DATAGRAM_SIZE);
         config.set_max_send_udp_payload_size(MAX_DATAGRAM_SIZE);
-        config.set_initial_max_data(10_000_000);
-        config.set_initial_max_stream_data_bidi_local(1_000_000);
-        config.set_initial_max_stream_data_bidi_remote(1_000_000);
-        config.set_initial_max_streams_bidi(100);
-        config.set_initial_max_streams_uni(100);
+
+        if let Some(ref p) = self.params {
+            if let Some(window) = p.init_connection_receive_window {
+                config.set_initial_max_data(window);
+            }
+            if let Some(window) = p.init_stream_receive_window {
+                config.set_initial_max_stream_data_bidi_local(window);
+                config.set_initial_max_stream_data_bidi_remote(window);
+            }
+            if let Some(streams) = p.max_incoming_streams {
+                config.set_initial_max_streams_bidi(streams);
+            }
+        } else {
+            config.set_initial_max_data(10_000_000);
+            config.set_initial_max_stream_data_bidi_local(1_000_000);
+            config.set_initial_max_stream_data_bidi_remote(1_000_000);
+            config.set_initial_max_streams_bidi(100);
+            config.set_initial_max_streams_uni(100);
+        }
+
         config.set_disable_active_migration(true);
         config.enable_early_data();
         config.enable_dgram(true, 2048, 2048);
-        config.set_cc_algorithm(quiche::CongestionControlAlgorithm::Bbr2Gcongestion);
+
+        let cc_algo = self.params.as_ref()
+            .and_then(|p| p.congestion.as_ref())
+            .map(|c| match c.as_str() {
+                "bbr" => quiche::CongestionControlAlgorithm::Bbr2Gcongestion,
+                "reno" => quiche::CongestionControlAlgorithm::Reno,
+                "cubic" => quiche::CongestionControlAlgorithm::CUBIC,
+                _ => quiche::CongestionControlAlgorithm::Bbr2Gcongestion,
+            })
+            .unwrap_or(quiche::CongestionControlAlgorithm::Bbr2Gcongestion);
+        
+        config.set_cc_algorithm(cc_algo);
+
+        if self.pqc_enabled {
+            debug!("QUIC: Integrated PQC (X25519+Kyber768) requested (handled by BoringSSL)");
+        }
 
         Ok(config)
     }
@@ -98,6 +135,7 @@ pub async fn listen(
     listen_addr: &str,
     port: u16,
     certificate: &Option<Certificate>,
+    params: Option<crate::config::QuicParams>,
 ) -> Result<QuicListener> {
     let addr = format!("{}:{}", listen_addr, port);
     let socket = Arc::new(UdpSocket::bind(&addr).await?);
@@ -106,6 +144,8 @@ pub async fn listen(
     let config_builder = QuicConfigBuilder {
         cert_file: certificate.as_ref().map(|c| c.certificate_file.clone()),
         key_file: certificate.as_ref().map(|c| c.key_file.clone()),
+        pqc_enabled: true, 
+        params,
     };
     let _ = config_builder.build()?;
 
@@ -122,25 +162,31 @@ pub async fn connect(
     server_name: &str,
     alpn: &[&[u8]],
     multiport_config: Option<&crate::config::MultiportConfig>,
+    pqc_settings: Option<&crate::config::PqcSettings>,
+    params: Option<crate::config::QuicParams>,
 ) -> Result<QuicConnection> {
     debug!("QUIC: Connecting to {} ({})", remote_addr, server_name);
 
     let local_addr: SocketAddr = "0.0.0.0:0".parse()?;
     let socket = Arc::new(UdpSocket::bind(local_addr).await?);
 
-    let mut config = QuicheConfig::new(quiche::PROTOCOL_VERSION)?;
+    let config_builder = QuicConfigBuilder {
+        cert_file: None,
+        key_file: None,
+        pqc_enabled: pqc_settings.map(|s| s.enabled).unwrap_or(false),
+        params,
+    };
+
+    let mut config = config_builder.build()?;
     config.verify_peer(false);
     config.set_application_protos(alpn)?;
-    config.set_max_idle_timeout(IDLE_TIMEOUT_MS);
-    config.set_max_recv_udp_payload_size(MAX_DATAGRAM_SIZE);
-    config.set_max_send_udp_payload_size(MAX_DATAGRAM_SIZE);
-    config.set_initial_max_data(10_000_000);
-    config.set_initial_max_stream_data_bidi_local(1_000_000);
-    config.set_initial_max_stream_data_bidi_remote(1_000_000);
-    config.set_initial_max_streams_bidi(100);
-    config.set_initial_max_streams_uni(100);
-    config.enable_dgram(true, 2048, 2048);
-    config.set_cc_algorithm(quiche::CongestionControlAlgorithm::Bbr2Gcongestion);
+
+    if let Some(pqc) = pqc_settings
+        && pqc.enabled
+    {
+        // PQC groups are handled automatically by modern BoringSSL/quiche
+        debug!("QUIC Client: PQC Requested (handled by BoringSSL)");
+    }
 
     let mut scid = [0; quiche::MAX_CONN_ID_LEN];
     let rng = SystemRandom::new();
@@ -150,22 +196,23 @@ pub async fn connect(
 
     let mut multiport = None;
     if let Some(mp_cfg) = multiport_config
-        && mp_cfg.enabled {
-            let strategy = match mp_cfg.strategy.as_deref() {
-                Some("dynamic") | Some("DynamicRandom") => {
-                    crate::transport::flow_j_multiport::MultiportStrategy::DynamicRandom
-                }
-                _ => crate::transport::flow_j_multiport::MultiportStrategy::StaticPool,
-            };
-            let mp = crate::transport::flow_j_multiport::MultiportSocketPool::bind(
-                "0.0.0.0",
-                &mp_cfg.port_range,
-                mp_cfg.rotation_frequency,
-                strategy,
-            )
-            .await?;
-            multiport = Some(Arc::new(Mutex::new(mp)));
-        }
+        && mp_cfg.enabled
+    {
+        let strategy = match mp_cfg.strategy.as_deref() {
+            Some("dynamic") | Some("DynamicRandom") => {
+                crate::transport::flow_j_multiport::MultiportStrategy::DynamicRandom
+            }
+            _ => crate::transport::flow_j_multiport::MultiportStrategy::StaticPool,
+        };
+        let mp = crate::transport::flow_j_multiport::MultiportSocketPool::bind(
+            "0.0.0.0",
+            &mp_cfg.port_range,
+            mp_cfg.rotation_frequency,
+            strategy,
+        )
+        .await?;
+        multiport = Some(Arc::new(Mutex::new(mp)));
+    }
 
     let socket = multiport
         .as_ref()
@@ -362,7 +409,23 @@ impl QuicConnection {
                 let mut guard = state.lock().await;
                 match guard.conn.send(&mut out) {
                     Ok((write, send_info)) => {
-                        let payload = out[..write].to_vec();
+                        let mut payload = out[..write].to_vec();
+                        
+                        // Juicity-style padding: Mask packet sizes by adding trailing zero-padding
+                        // QUIC RFC 9000 specifies that implementations must ignore trailing garbage in UDP datagrams
+                        if payload.len() < MAX_DATAGRAM_SIZE {
+                            use rand::Rng;
+                            let mut rng = rand::thread_rng();
+                            // Randomly pad to either a large chunk or max size to reduce entropy
+                            let pad_target = if rng.gen_bool(0.3) {
+                                MAX_DATAGRAM_SIZE
+                            } else {
+                                payload.len() + rng.gen_range(16..256).min(MAX_DATAGRAM_SIZE - payload.len())
+                            };
+                            
+                            payload.resize(pad_target, 0);
+                        }
+
                         let dest = send_info.to;
                         let socket = guard.socket.clone();
                         drop(guard);
@@ -381,11 +444,11 @@ impl QuicConnection {
         }
     }
 
-    pub async fn accept_stream(&mut self) -> Result<BoxedStream> {
+    pub async fn accept_stream(&mut self) -> Result<BoxedTrinityTransport> {
         loop {
             let mut guard = self.state.lock().await;
             if let Some(id) = guard.readable_streams.pop() {
-                return Ok(Box::new(QuicStreamHandle::new(id, self.state.clone())));
+                return Ok(Box::new(QuicStreamHandle::new(id, self.state.clone())) as BoxedTrinityTransport);
             }
             if guard.is_closed {
                 return Err(anyhow::anyhow!("Connection closed"));
@@ -398,7 +461,7 @@ impl QuicConnection {
         }
     }
 
-    pub async fn open_stream(&mut self) -> Result<BoxedStream> {
+    pub async fn open_stream(&mut self) -> Result<BoxedTrinityTransport> {
         let mut guard = self.state.lock().await;
         let is_server = guard.conn.is_server();
         let stream_id = if is_server {
@@ -407,15 +470,15 @@ impl QuicConnection {
             guard.next_stream_id * 4
         };
         guard.next_stream_id += 1;
-
+ 
         // Send initial frame
         guard.conn.stream_send(stream_id, &[], false).ok();
         drop(guard);
-
+ 
         Ok(Box::new(QuicStreamHandle::new(
             stream_id,
             self.state.clone(),
-        )))
+        )) as BoxedTrinityTransport)
     }
     pub async fn application_protocol(&self) -> Vec<u8> {
         let guard = self.state.lock().await;
@@ -494,6 +557,23 @@ impl QuicStreamHandle {
             read_pos: 0,
             closed: false,
         }
+    }
+}
+
+impl TrinityTransport for QuicStreamHandle {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, _new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        Err(io::Error::new(io::ErrorKind::Unsupported, "QuicStreamHandle: switch_carrier not supported"))
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+
+    fn handover(self, _new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Err(anyhow::anyhow!("QuicStreamHandle: handover not supported"))
     }
 }
 

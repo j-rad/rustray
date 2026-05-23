@@ -214,16 +214,17 @@ impl BillingJob {
 
         // Persist changes to database
         if !changes.is_empty()
-            && let Some(db) = &self.db {
-                for (user_id, inbound_tag, enabled) in changes {
-                    if let Err(e) = self
-                        .persist_user_state(db, &user_id, &inbound_tag, enabled)
-                        .await
-                    {
-                        error!("Failed to persist user state: {}", e);
-                    }
+            && let Some(db) = &self.db
+        {
+            for (user_id, inbound_tag, enabled) in changes {
+                if let Err(e) = self
+                    .persist_user_state(db, &user_id, &inbound_tag, enabled)
+                    .await
+                {
+                    error!("Failed to persist user state: {}", e);
                 }
             }
+        }
     }
 
     async fn persist_user_state(

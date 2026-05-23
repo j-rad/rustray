@@ -14,6 +14,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tokio::net::TcpStream;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
 
 // --- PostgreSQL Constants ---
 const PG_STARTUP_MSG_CODE: i32 = 196608; // Protocol 3.0
@@ -250,26 +251,26 @@ impl AsyncRead for DbMimicStream {
                                             // Parse length
                                             if let Ok(len_str) =
                                                 std::str::from_utf8(&raw.chunk()[1..idx])
-                                                && let Ok(len) = len_str.parse::<i32>() {
-                                                    let data_start = idx + 2;
-                                                    if len >= 0 {
-                                                        let ulen = len as usize;
-                                                        // Check if we have the full payload + trailing \r\n
-                                                        if raw.remaining() >= data_start + ulen + 2
-                                                        {
-                                                            self.rx_buf.put_slice(
-                                                                &raw.chunk()
-                                                                    [data_start..data_start + ulen],
-                                                            );
-                                                            raw.advance(data_start + ulen + 2);
-                                                            continue;
-                                                        }
-                                                    } else if len == -1 {
-                                                        // Null Bulk String, just skip
-                                                        raw.advance(data_start);
+                                                && let Ok(len) = len_str.parse::<i32>()
+                                            {
+                                                let data_start = idx + 2;
+                                                if len >= 0 {
+                                                    let ulen = len as usize;
+                                                    // Check if we have the full payload + trailing \r\n
+                                                    if raw.remaining() >= data_start + ulen + 2 {
+                                                        self.rx_buf.put_slice(
+                                                            &raw.chunk()
+                                                                [data_start..data_start + ulen],
+                                                        );
+                                                        raw.advance(data_start + ulen + 2);
                                                         continue;
                                                     }
+                                                } else if len == -1 {
+                                                    // Null Bulk String, just skip
+                                                    raw.advance(data_start);
+                                                    continue;
                                                 }
+                                            }
                                         }
                                         // Incomplete or invalid
                                         break;
@@ -334,6 +335,21 @@ impl AsyncWrite for DbMimicStream {
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Pin::new(&mut self.inner).poll_shutdown(cx)
+    }
+}
+
+impl TrinityTransport for DbMimicStream {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, _new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        Err(io::Error::new(io::ErrorKind::Unsupported, "DbMimicStream: hot-swap not supported"))
+    }
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+    fn handover(self, _new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Ok(self)
     }
 }
 

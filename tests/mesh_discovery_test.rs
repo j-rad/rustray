@@ -3,10 +3,7 @@
 //! Tests NAT traversal, peer signaling, and hole punching scenarios
 //! including symmetric vs cone NAT simulation.
 
-use rustray::api::signaling::{
-    PeerSignal, SignalingService,
-    determine_connection_strategy,
-};
+use rustray::api::signaling::{PeerSignal, SignalingService, determine_connection_strategy};
 use rustray::app::reverse::nat::{
     ConnectionStrategy, HolePunchCoordinator, NatInfo, NatType, StunClient,
 };

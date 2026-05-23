@@ -142,12 +142,12 @@ pub async fn apply_config(
 
     // Try atomic update first (hot reload)
     match state.engine.apply_routing_config(config_str.clone()) {
-        crate::ffi::RustRayResult::Ok => {
+        crate::ffi::RayResult::Ok => {
             return HttpResponse::Ok().json(
                 serde_json::json!({"status": "ok", "message": "Configuration updated atomically"}),
             );
         }
-        crate::ffi::RustRayResult::NotRunning => {
+        crate::ffi::RayResult::NotRunning => {
             // Engine not running, fall through to start
         }
         err => {
@@ -161,7 +161,7 @@ pub async fn apply_config(
 
     // Start new
     match state.engine.start_engine(config_str, None) {
-        crate::ffi::RustRayResult::Ok => HttpResponse::Ok()
+        crate::ffi::RayResult::Ok => HttpResponse::Ok()
             .json(serde_json::json!({"status": "ok", "message": "Engine started"})),
         err => HttpResponse::BadRequest()
             .json(serde_json::json!({"status": "error", "message": err.to_string()})),

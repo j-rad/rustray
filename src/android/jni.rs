@@ -5,8 +5,8 @@
 //! from being routed through the TUN interface, preventing VPN routing loops.
 
 use std::os::unix::io::AsRawFd;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tracing::{debug, warn};
 
 /// Global flag indicating if we're running on Android
@@ -86,16 +86,16 @@ mod tests {
 
 #[cfg(target_os = "android")]
 mod jni_exports {
-    use jni::objects::{JClass, JString};
-    use jni::sys::{jboolean, jint, JNI_FALSE, JNI_TRUE};
     use jni::JNIEnv;
+    use jni::objects::{JClass, JString};
+    use jni::sys::{JNI_FALSE, JNI_TRUE, jboolean, jint};
     use std::ffi::CStr;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex, OnceLock};
     use tokio::runtime::Runtime;
     use tracing::{error, info};
 
-    use crate::ffi::{global_shared_stats, ConnectConfig, EngineManager};
+    use crate::ffi::{ConnectConfig, EngineManager, global_shared_stats};
 
     /// Global engine instance for JNI
     static JNI_ENGINE: OnceLock<Arc<EngineManager>> = OnceLock::new();
@@ -162,20 +162,20 @@ mod jni_exports {
         // Create a VPN callback that calls back to Java for socket protection
         // For now we use None as the callback is handled separately
         match engine.start_engine(config_with_fd, None) {
-            crate::ffi::RustRayResult::Ok => {
+            crate::ffi::RayResult::Ok => {
                 VPN_RUNNING.store(true, Ordering::Release);
                 info!("JNI: VPN engine started successfully");
                 0
             }
-            crate::ffi::RustRayResult::AlreadyRunning => {
+            crate::ffi::RayResult::AlreadyRunning => {
                 info!("JNI: VPN engine already running");
                 0
             }
-            crate::ffi::RustRayResult::ConfigError(e) => {
+            crate::ffi::RayResult::ConfigError(e) => {
                 error!("JNI: Config error: {}", e);
                 -4
             }
-            crate::ffi::RustRayResult::ConnectionError(e) => {
+            crate::ffi::RayResult::ConnectionError(e) => {
                 error!("JNI: Connection error: {}", e);
                 -5
             }
@@ -199,12 +199,12 @@ mod jni_exports {
 
         let engine = get_engine();
         match engine.stop_engine() {
-            crate::ffi::RustRayResult::Ok => {
+            crate::ffi::RayResult::Ok => {
                 VPN_RUNNING.store(false, Ordering::Release);
                 info!("JNI: VPN engine stopped successfully");
                 0
             }
-            crate::ffi::RustRayResult::NotRunning => {
+            crate::ffi::RayResult::NotRunning => {
                 info!("JNI: VPN engine was not running");
                 0
             }

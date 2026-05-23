@@ -4,8 +4,8 @@ use crate::config::LevelPolicy;
 use crate::config::{Shadowsocks2022OutboundSettings, Shadowsocks2022Settings};
 use crate::error::Result;
 use crate::outbounds::Outbound;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
 use crate::router::Router;
-use crate::transport::BoxedStream;
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes128Gcm, Nonce};
 use async_trait::async_trait;
@@ -27,7 +27,7 @@ const TAG_LEN: usize = 16;
 pub async fn listen_stream(
     router: Arc<Router>,
     state: Arc<StatsManager>,
-    mut stream: BoxedStream,
+    mut stream: BoxedTrinityTransport,
     settings: Shadowsocks2022Settings,
     source: String,
 ) -> Result<()> {
@@ -142,7 +142,7 @@ pub async fn listen_stream(
     )?;
 
     router
-        .route_stream(Box::new(wrapped_stream), host, port, source, policy)
+        .route_stream(Box::new(wrapped_stream) as BoxedTrinityTransport, host, port, source, policy)
         .await
 }
 
@@ -178,7 +178,7 @@ impl Shadowsocks2022Outbound {
 impl Outbound for Shadowsocks2022Outbound {
     async fn handle(
         &self,
-        mut in_stream: BoxedStream,
+        mut in_stream: BoxedTrinityTransport,
         host: String,
         port: u16,
         _policy: Arc<LevelPolicy>,
@@ -188,7 +188,7 @@ impl Outbound for Shadowsocks2022Outbound {
         Ok(())
     }
 
-    async fn dial(&self, host: String, port: u16) -> Result<BoxedStream> {
+    async fn dial(&self, host: String, port: u16) -> Result<BoxedTrinityTransport> {
         let addr = format!("{}:{}", self.settings.address, self.settings.port);
         let mut out_stream = tokio::net::TcpStream::connect(&addr).await?;
 
@@ -257,8 +257,8 @@ impl Outbound for Shadowsocks2022Outbound {
         use crate::protocols::shadowsocks_stream::ShadowsocksStream;
         let session_key_array: [u8; KEY_LEN] = session_key.try_into().unwrap();
         let ss_stream =
-            ShadowsocksStream::new_with_nonce(Box::new(out_stream), &session_key_array, nonce_val)?;
+            ShadowsocksStream::new_with_nonce(Box::new(out_stream) as BoxedTrinityTransport, &session_key_array, nonce_val)?;
 
-        Ok(Box::new(ss_stream) as BoxedStream)
+        Ok(Box::new(ss_stream) as BoxedTrinityTransport)
     }
 }

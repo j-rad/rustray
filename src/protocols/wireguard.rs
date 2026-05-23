@@ -13,7 +13,8 @@ use crate::app::stats::StatsManager;
 use crate::config::{LevelPolicy, WireGuardSettings};
 use crate::error::Result;
 use crate::outbounds::Outbound;
-use crate::transport::{BoxedStream, Packet};
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
+use crate::transport::Packet;
 use async_trait::async_trait;
 use boringtun::noise::{Tunn, TunnResult};
 use std::sync::Arc;
@@ -112,9 +113,9 @@ impl WireGuardOutbound {
 impl Outbound for WireGuardOutbound {
     async fn handle(
         &self,
-        _stream: BoxedStream,
-        _host: String,
-        _port: u16,
+        _stream: BoxedTrinityTransport,
+        host: String,
+        port: u16,
         _policy: Arc<LevelPolicy>,
     ) -> Result<()> {
         // WireGuard is L3. We cannot easily handle L4 stream without a userspace TCP/IP stack (like smoltcp).
@@ -123,7 +124,7 @@ impl Outbound for WireGuardOutbound {
         ))
     }
 
-    async fn dial(&self, _host: String, _port: u16) -> Result<BoxedStream> {
+    async fn dial(&self, _host: String, _port: u16) -> Result<BoxedTrinityTransport> {
         // WireGuard is L3. We cannot easily return an L4 stream.
         Err(anyhow::anyhow!(
             "WireGuard outbound does not support L4 dialing"

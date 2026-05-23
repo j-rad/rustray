@@ -9,12 +9,15 @@
 
 use crate::error::Result;
 use crate::protocols::flow_j::{HttpUpgradeSettings, XhttpSettings};
-use crate::transport::BoxedStream;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityStream, TrinityTransport};
 use actix_web::{HttpRequest, HttpResponse, Responder, web};
-use bytes::{Bytes, BytesMut};
+use bytes::{Buf, Bytes, BytesMut};
 use futures::StreamExt;
+use std::io;
+use std::pin::Pin;
 use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use std::task::{Context, Poll};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tracing::{debug, warn};
@@ -94,16 +97,17 @@ pub async fn http_upgrade_handler(
 
 /// HTTP Upgrade client connection
 pub async fn connect_http_upgrade(
-    addr: &str,
+    mut stream: BoxedTrinityTransport,
     settings: &HttpUpgradeSettings,
     uuid: &str,
-) -> Result<BoxedStream> {
-    debug!("Flow-J CDN: Connecting via HttpUpgrade to {}", addr);
-
-    let mut stream = TcpStream::connect(addr).await?;
+) -> Result<BoxedTrinityTransport> {
+    debug!("Flow-J CDN: Initiating HttpUpgrade handshake");
+    // Removed direct TcpStream::connect since we now accept a TrinityTransport base.
 
     // Build upgrade request
-    let host = settings.host.as_deref().unwrap_or(addr);
+    // Domain Fronting: settings.host is used for HTTP Host header.
+    // Underlying TLS SNI (if any) is independent of this.
+    let host = settings.host.as_deref().unwrap_or("localhost");
     let path = &settings.path;
 
     let uuid_b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, uuid);
@@ -155,14 +159,14 @@ pub async fn connect_http_upgrade(
 
     if response_str.contains("101") && response_str.to_lowercase().contains("switching") {
         debug!("Flow-J CDN: HttpUpgrade successful");
-        return Ok(Box::new(stream));
+        return Ok(stream);
     }
 
     // Check for other status codes
     if response_str.contains("200") {
         // Some servers send 200 instead of 101
         debug!("Flow-J CDN: Server sent 200 instead of 101, continuing");
-        return Ok(Box::new(stream));
+        return Ok(stream);
     }
 
     Err(anyhow::anyhow!(
@@ -397,8 +401,8 @@ pub struct CdnStream {
 }
 
 enum CdnStreamInner {
-    /// HTTP Upgrade - single TCP connection
-    HttpUpgrade(TcpStream),
+    /// HTTP Upgrade - single TrinityTransport carrier
+    HttpUpgrade(BoxedTrinityTransport),
     /// xhttp - dual HTTP streams
     Xhttp {
         client: Arc<XhttpClient>,
@@ -411,7 +415,7 @@ enum CdnStreamInner {
 
 impl CdnStream {
     /// Create from HTTP Upgrade connection
-    pub fn from_http_upgrade(stream: TcpStream) -> Self {
+    pub fn from_http_upgrade(stream: BoxedTrinityTransport) -> Self {
         Self {
             inner: CdnStreamInner::HttpUpgrade(stream),
         }
@@ -467,6 +471,112 @@ impl CdnStream {
                 read_rx,
                 write_tx,
             },
+        }
+    }
+}
+
+impl AsyncRead for CdnStream {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        match &mut self.inner {
+            CdnStreamInner::HttpUpgrade(inner) => Pin::new(inner).poll_read(cx, buf),
+            CdnStreamInner::Xhttp {
+                read_rx,
+                read_buffer,
+                ..
+            } => {
+                // If we have data in the buffer, use it first
+                if !read_buffer.is_empty() {
+                    let n = std::cmp::min(read_buffer.len(), buf.remaining());
+                    buf.put_slice(&read_buffer[..n]);
+                    read_buffer.advance(n);
+                    return Poll::Ready(Ok(()));
+                }
+
+                // Try to receive from channel
+                match read_rx.poll_recv(cx) {
+                    Poll::Ready(Some(data)) => {
+                        let n = std::cmp::min(data.len(), buf.remaining());
+                        buf.put_slice(&data[..n]);
+                        if n < data.len() {
+                            read_buffer.extend_from_slice(&data[n..]);
+                        }
+                        Poll::Ready(Ok(()))
+                    }
+                    Poll::Ready(None) => Poll::Ready(Ok(())), // EOF
+                    Poll::Pending => Poll::Pending,
+                }
+            }
+        }
+    }
+}
+
+impl AsyncWrite for CdnStream {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        match &mut self.inner {
+            CdnStreamInner::HttpUpgrade(inner) => Pin::new(inner).poll_write(cx, buf),
+            CdnStreamInner::Xhttp { write_tx, .. } => {
+                // For xhttp, we just send the chunk to the channel
+                match write_tx.try_send(buf.to_vec()) {
+                    Ok(()) => Poll::Ready(Ok(buf.len())),
+                    Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+                        cx.waker().wake_by_ref();
+                        Poll::Pending
+                    }
+                    Err(_) => Poll::Ready(Err(io::Error::new(
+                        io::ErrorKind::BrokenPipe,
+                        "xhttp write channel closed",
+                    ))),
+                }
+            }
+        }
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        match &mut self.inner {
+            CdnStreamInner::HttpUpgrade(inner) => Pin::new(inner).poll_flush(cx),
+            CdnStreamInner::Xhttp { .. } => Poll::Ready(Ok(())),
+        }
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        match &mut self.inner {
+            CdnStreamInner::HttpUpgrade(inner) => Pin::new(inner).poll_shutdown(cx),
+            CdnStreamInner::Xhttp { .. } => Poll::Ready(Ok(())),
+        }
+    }
+}
+
+
+impl TrinityTransport for CdnStream {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, new_carrier: BoxedTrinityTransport) -> std::io::Result<()> {
+        match &mut self.inner {
+            CdnStreamInner::HttpUpgrade(inner) => inner.switch_carrier(new_carrier),
+            CdnStreamInner::Xhttp { .. } => Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "Xhttp: switch_carrier not implemented")),
+        }
+    }
+
+    fn apply_fragmentation(&mut self) -> std::io::Result<()> {
+        match &mut self.inner {
+            CdnStreamInner::HttpUpgrade(inner) => inner.apply_fragmentation(),
+            CdnStreamInner::Xhttp { .. } => Ok(()),
+        }
+    }
+
+    fn handover(self, new_tal: BoxedTrinityTransport) -> Result<Self> {
+        match self.inner {
+            CdnStreamInner::HttpUpgrade(_inner) => Ok(Self::from_http_upgrade(new_tal)),
+            CdnStreamInner::Xhttp { .. } => Err(anyhow::anyhow!("Xhttp: handover not supported")),
         }
     }
 }

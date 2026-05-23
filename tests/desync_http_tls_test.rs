@@ -60,8 +60,10 @@ async fn test_desync_passthrough_after_first_write() {
     let mut buf2 = vec![0u8; 1024];
     match tokio::time::timeout(
         std::time::Duration::from_millis(100),
-        server.read(&mut buf2)
-    ).await {
+        server.read(&mut buf2),
+    )
+    .await
+    {
         Ok(Ok(n)) if n > 0 => {
             // Good, received the second fragment
         }

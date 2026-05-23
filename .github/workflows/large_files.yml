@@ -1,0 +1,14 @@
+name: Large Files Check
+on: [push, pull_request]
+
+jobs:
+  check-large-files:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Check for large files
+        run: |
+          chmod +x scripts/check_large_files.sh
+          ./scripts/check_large_files.sh

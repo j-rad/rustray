@@ -3,8 +3,9 @@ use crate::app::dns::DnsServer;
 use crate::app::stats::StatsManager;
 use crate::config::DokodemoSettings;
 use crate::error::Result;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
 use crate::router::Router;
-use crate::transport::{BoxedStream, UdpPacket, tproxy};
+use crate::transport::{UdpPacket, tproxy};
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 use tracing::{info, warn};
@@ -13,7 +14,7 @@ pub async fn listen_stream(
     router: Arc<Router>,
     _dns_server: Arc<DnsServer>,
     state: Arc<StatsManager>,
-    stream: BoxedStream,
+    stream: BoxedTrinityTransport,
     settings: DokodemoSettings,
     source: String,
 ) -> Result<()> {

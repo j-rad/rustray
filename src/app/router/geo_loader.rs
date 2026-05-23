@@ -681,9 +681,10 @@ impl GeoManager {
                     if itag == 1 {
                         let clen = encoding::decode_varint(&mut body_slice).unwrap_or(0) as usize;
                         if body_slice.len() >= clen
-                            && let Ok(s) = std::str::from_utf8(&body_slice[..clen]) {
-                                country = s.to_uppercase();
-                            }
+                            && let Ok(s) = std::str::from_utf8(&body_slice[..clen])
+                        {
+                            country = s.to_uppercase();
+                        }
                         break;
                     } else {
                         let _ =
@@ -764,9 +765,10 @@ impl GeoManager {
 
         // Special case: Iran (use fast path first)
         if (country.eq_ignore_ascii_case("ir") || country.eq_ignore_ascii_case("iran"))
-            && self.is_iranian_ip(ip) {
-                return true;
-            }
+            && self.is_iranian_ip(ip)
+        {
+            return true;
+        }
 
         // Zero-copy lookup
         let guard = match self.geoip_data.read() {
@@ -892,10 +894,11 @@ impl GeoManager {
 
                         if let Some(net_ip) = ip_addr_opt
                             && let Ok(net) = ipnetwork::IpNetwork::new(net_ip, cidr_prefix as u8)
-                                && net.contains(ip) {
-                                    self.stats.geoip_hits.fetch_add(1, Ordering::Relaxed);
-                                    return true;
-                                }
+                            && net.contains(ip)
+                        {
+                            self.stats.geoip_hits.fetch_add(1, Ordering::Relaxed);
+                            return true;
+                        }
                     }
 
                     // Advance main buf past this CIDR
@@ -956,12 +959,12 @@ impl GeoManager {
                         if let Ok(net) = ipnetwork::IpNetwork::new(
                             std::net::IpAddr::V4(ip_addr),
                             cidr.prefix as u8,
-                        )
-                            && let Some(range) = IpRange::from_network(net)
-                                && range.contains(ip_u32) {
-                                    self.stats.geoip_hits.fetch_add(1, Ordering::Relaxed);
-                                    return Some(country.clone());
-                                }
+                        ) && let Some(range) = IpRange::from_network(net)
+                            && range.contains(ip_u32)
+                        {
+                            self.stats.geoip_hits.fetch_add(1, Ordering::Relaxed);
+                            return Some(country.clone());
+                        }
                     }
                 }
             }
@@ -975,10 +978,11 @@ impl GeoManager {
         self.stats.geosite_lookups.fetch_add(1, Ordering::Relaxed);
 
         if (category.eq_ignore_ascii_case("ir") || category.eq_ignore_ascii_case("iran"))
-            && self.is_iranian_domain(domain) {
-                self.stats.geosite_hits.fetch_add(1, Ordering::Relaxed);
-                return true;
-            }
+            && self.is_iranian_domain(domain)
+        {
+            self.stats.geosite_hits.fetch_add(1, Ordering::Relaxed);
+            return true;
+        }
 
         let guard = match self.geosite_data.read() {
             Ok(g) => g,
@@ -1093,7 +1097,9 @@ impl GeoManager {
                         self.stats.geosite_hits.fetch_add(1, Ordering::Relaxed);
                         return true;
                     }
-                } else if encoding::skip_field(wire_type, tag, &mut buf, Default::default()).is_err() {
+                } else if encoding::skip_field(wire_type, tag, &mut buf, Default::default())
+                    .is_err()
+                {
                     break;
                 }
             }
@@ -1183,18 +1189,20 @@ impl GeoManager {
     /// Get keys (Country Codes) available in GeoIP
     pub fn get_geoip_keys(&self) -> Vec<String> {
         if let Ok(guard) = self.geoip_data.read()
-            && let Some(mapped) = guard.as_ref() {
-                return mapped.index.keys().cloned().collect();
-            }
+            && let Some(mapped) = guard.as_ref()
+        {
+            return mapped.index.keys().cloned().collect();
+        }
         Vec::new()
     }
 
     /// Get keys (Categories) available in GeoSite
     pub fn get_geosite_keys(&self) -> Vec<String> {
         if let Ok(guard) = self.geosite_data.read()
-            && let Some(mapped) = guard.as_ref() {
-                return mapped.index.keys().cloned().collect();
-            }
+            && let Some(mapped) = guard.as_ref()
+        {
+            return mapped.index.keys().cloned().collect();
+        }
         Vec::new()
     }
 }

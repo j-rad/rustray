@@ -3,8 +3,10 @@ use crate::app::stats::StatsManager;
 use crate::config::Inbound;
 use crate::config::{RealityClientConfig, RealityServerConfig};
 use crate::error::Result;
-use crate::router::Router;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
 use crate::transport::BoxedStream;
+use crate::router::Router;
+use crate::transport::utls::alpn_for_service;
 use aes_gcm::aead::consts::U12;
 use aes_gcm::aead::generic_array::GenericArray;
 use aes_gcm::{
@@ -31,27 +33,52 @@ const TLS_HEADER_LEN: usize = 5;
 const RECORD_TYPE_HANDSHAKE: u8 = 22;
 const RECORD_TYPE_APPLICATION_DATA: u8 = 23;
 
+/// RFC 8701 GREASE values
+const GREASE_VALUES: [u16; 16] = [
+    0x0a0a, 0x1a1a, 0x2a2a, 0x3a3a, 0x4a4a, 0x5a5a, 0x6a6a, 0x7a7a, 0x8a8a, 0x9a9a, 0xaaaa, 0xbaba,
+    0xcaca, 0xdada, 0xeaea, 0xfafa,
+];
+
+fn get_grease_value(seed: u8) -> u16 {
+    GREASE_VALUES[(seed % 16) as usize]
+}
+
+pub struct RealityHandshake {
+    pub client_secret: StaticSecret,
+    pub client_hello: Vec<u8>,
+}
+
+impl RealityHandshake {
+    pub fn new(settings: &RealityClientConfig) -> Self {
+        let client_secret = StaticSecret::random_from_rng(rand::thread_rng());
+        let client_pub = PublicKey::from(&client_secret);
+
+        let client_hello = construct_client_hello(
+            &settings.server_name,
+            client_pub.as_bytes(),
+            &settings.short_id,
+            &settings.public_key,
+        );
+
+        Self {
+            client_secret,
+            client_hello,
+        }
+    }
+}
+
 // --- CLIENT (Manual Handshake) ---
 pub async fn connect(
-    mut stream: BoxedStream,
+    mut stream: BoxedTrinityTransport,
     settings: &RealityClientConfig,
-) -> Result<BoxedStream> {
+) -> Result<BoxedTrinityTransport> {
     info!("REALITY Client: Connecting to {}", settings.server_name);
 
-    // 1. Generate Client Keypair
-    let client_static_secret = StaticSecret::random_from_rng(rand::thread_rng());
-    let client_pub_key = PublicKey::from(&client_static_secret);
+    // 1. Initialize Handshake
+    let handshake = RealityHandshake::new(settings);
 
-    // 2. Construct ClientHello
-    let client_hello = construct_client_hello(
-        &settings.server_name,
-        client_pub_key.as_bytes(),
-        &settings.short_id,
-        &settings.public_key,
-    );
-
-    // 3. Send ClientHello
-    stream.write_all(&client_hello).await?;
+    // 2. Send ClientHello
+    stream.write_all(&handshake.client_hello).await?;
 
     // 4. Receive ServerHello and other records
     let mut buf = BytesMut::new();
@@ -86,7 +113,9 @@ pub async fn connect(
         .ok_or_else(|| anyhow::anyhow!("Invalid ServerHello"))?;
 
     // 5. Derive Handshake Keys
-    let shared_secret = client_static_secret.diffie_hellman(&PublicKey::from(server_pub_key));
+    let shared_secret = handshake
+        .client_secret
+        .diffie_hellman(&PublicKey::from(server_pub_key));
 
     let (early_prk, _) = Hkdf::<Sha256>::extract(None, &[0u8; 0]);
     let empty_hash = Sha256::digest([]);
@@ -95,7 +124,7 @@ pub async fn connect(
         Hkdf::<Sha256>::extract(Some(&derived_early), shared_secret.as_bytes());
 
     let mut transcript = Sha256::new();
-    transcript.update(&client_hello[5..]);
+    transcript.update(&handshake.client_hello[5..]);
     transcript.update(&sh_data[5..]);
 
     let hello_hash = transcript.clone().finalize();
@@ -206,7 +235,7 @@ pub async fn connect(
                         c_app_iv,
                         Aes128Gcm::new_from_slice(&s_app_key).unwrap(),
                         s_app_iv,
-                    )) as BoxedStream);
+                    )) as BoxedTrinityTransport);
                 }
 
                 cursor.set_position((start_pos + msg_len) as u64);
@@ -228,31 +257,275 @@ impl<T: AsRef<[u8]>> CursorExt for io::Cursor<T> {
     }
 }
 
+/// Chrome 140+ signature algorithms in exact wire order.
+const CHROME140_SIG_ALGS: [u16; 12] = [
+    0x0403, // ecdsa_secp256r1_sha256
+    0x0804, // rsa_pss_rsae_sha256
+    0x0401, // rsa_pkcs1_sha256
+    0x0503, // ecdsa_secp384r1_sha384
+    0x0805, // rsa_pss_rsae_sha384
+    0x0501, // rsa_pkcs1_sha384
+    0x0806, // rsa_pss_rsae_sha512
+    0x0601, // rsa_pkcs1_sha512
+    0x0807, // rsa_pss_pss_sha256
+    0x0808, // rsa_pss_pss_sha384
+    0x0809, // rsa_pss_pss_sha512
+    0x0203, // ecdsa_sha1 (legacy, Chrome still sends)
+];
+
+/// Chrome 140+ delegated credentials signature algorithms.
+const CHROME140_DC_SIG_ALGS: [u16; 4] = [
+    0x0403, // ecdsa_secp256r1_sha256
+    0x0503, // ecdsa_secp384r1_sha384
+    0x0804, // rsa_pss_rsae_sha256
+    0x0805, // rsa_pss_rsae_sha384
+];
+
+/// Chrome 140+ supported groups in exact wire order.
+const CHROME140_GROUPS: [u16; 5] = [
+    0x6399, // X25519Kyber768Draft00 (hybrid PQ)
+    0x001d, // x25519
+    0x0017, // secp256r1
+    0x0018, // secp384r1
+    0x0019, // secp521r1
+];
+
+/// Chrome 140+ cipher suites in exact wire order (excluding leading GREASE).
+const CHROME140_CIPHERS: [u16; 15] = [
+    0x1301, // TLS_AES_128_GCM_SHA256
+    0x1302, // TLS_AES_256_GCM_SHA384
+    0x1303, // TLS_CHACHA20_POLY1305_SHA256
+    0xc02b, // ECDHE-ECDSA-AES128-GCM-SHA256
+    0xc02f, // ECDHE-RSA-AES128-GCM-SHA256
+    0xc02c, // ECDHE-ECDSA-AES256-GCM-SHA384
+    0xc030, // ECDHE-RSA-AES256-GCM-SHA384
+    0xcca9, // ECDHE-ECDSA-CHACHA20-POLY1305
+    0xcca8, // ECDHE-RSA-CHACHA20-POLY1305
+    0xc013, // ECDHE-RSA-AES128-SHA
+    0xc014, // ECDHE-RSA-AES256-SHA
+    0x009c, // RSA-AES128-GCM-SHA256
+    0x009d, // RSA-AES256-GCM-SHA384
+    0x002f, // RSA-AES128-SHA
+    0x0035, // RSA-AES256-SHA
+];
+
+/// Extension writer helpers — each appends one extension to `buf`.
+struct ExtWriter;
+
+impl ExtWriter {
+    /// GREASE extension (empty body).
+    fn grease(buf: &mut BytesMut, seed: u8) {
+        buf.put_u16(get_grease_value(seed));
+        buf.put_u16(1);
+        buf.put_u8(0);
+    }
+
+    /// Server Name Indication (type 0x0000).
+    fn sni(buf: &mut BytesMut, server_name: &str) {
+        let sni_len = server_name.len();
+        buf.put_u16(0x0000);
+        buf.put_u16((sni_len + 5) as u16);
+        buf.put_u16((sni_len + 3) as u16);
+        buf.put_u8(0);
+        buf.put_u16(sni_len as u16);
+        buf.put_slice(server_name.as_bytes());
+    }
+
+    /// Extended Master Secret (type 0x0017).
+    fn extended_master_secret(buf: &mut BytesMut) {
+        buf.put_u16(0x0017);
+        buf.put_u16(0);
+    }
+
+    /// Renegotiation Info (type 0xff01).
+    fn renegotiation_info(buf: &mut BytesMut) {
+        buf.put_u16(0xff01);
+        buf.put_u16(1);
+        buf.put_u8(0);
+    }
+
+    /// Supported Groups (type 0x000a).
+    fn supported_groups(buf: &mut BytesMut, seed: u8) {
+        let count = 1 + CHROME140_GROUPS.len(); // GREASE + groups
+        buf.put_u16(0x000a);
+        buf.put_u16((count * 2 + 2) as u16);
+        buf.put_u16((count * 2) as u16);
+        buf.put_u16(get_grease_value(seed));
+        for g in CHROME140_GROUPS {
+            buf.put_u16(g);
+        }
+    }
+
+    /// EC Point Formats (type 0x000b).
+    fn ec_point_formats(buf: &mut BytesMut) {
+        buf.put_u16(0x000b);
+        buf.put_u16(2);
+        buf.put_u8(1);
+        buf.put_u8(0); // uncompressed
+    }
+
+    /// Session Ticket (type 0x0023) — empty (Chrome sends empty).
+    fn session_ticket(buf: &mut BytesMut) {
+        buf.put_u16(0x0023);
+        buf.put_u16(0);
+    }
+
+    /// ALPN (type 0x0010) — dynamic injection.
+    fn alpn(buf: &mut BytesMut, server_name: &str) {
+        let protocols = alpn_for_service(server_name);
+        let alpn_len: usize = protocols.iter().map(|p| p.len() + 1).sum();
+        buf.put_u16(0x0010);
+        buf.put_u16((alpn_len + 2) as u16);
+        buf.put_u16(alpn_len as u16);
+        for proto in protocols {
+            buf.put_u8(proto.len() as u8);
+            buf.put_slice(proto.as_bytes());
+        }
+    }
+
+    /// Status Request / OCSP Stapling (type 0x0005).
+    fn status_request(buf: &mut BytesMut) {
+        buf.put_u16(0x0005);
+        buf.put_u16(5);
+        buf.put_u8(1); // ocsp
+        buf.put_u16(0); // responder_id_list
+        buf.put_u16(0); // request_extensions
+    }
+
+    /// Delegated Credentials (type 0x0022).
+    fn delegated_credentials(buf: &mut BytesMut) {
+        let len = CHROME140_DC_SIG_ALGS.len() * 2;
+        buf.put_u16(0x0022);
+        buf.put_u16((len + 2) as u16);
+        buf.put_u16(len as u16);
+        for alg in CHROME140_DC_SIG_ALGS {
+            buf.put_u16(alg);
+        }
+    }
+
+    /// Signature Algorithms (type 0x000d).
+    fn signature_algorithms(buf: &mut BytesMut) {
+        let len = CHROME140_SIG_ALGS.len() * 2;
+        buf.put_u16(0x000d);
+        buf.put_u16((len + 2) as u16);
+        buf.put_u16(len as u16);
+        for alg in CHROME140_SIG_ALGS {
+            buf.put_u16(alg);
+        }
+    }
+
+    /// Signed Certificate Timestamp (type 0x0012) — empty.
+    fn sct(buf: &mut BytesMut) {
+        buf.put_u16(0x0012);
+        buf.put_u16(0);
+    }
+
+    /// Key Share (type 0x0033) — x25519 only.
+    fn key_share(buf: &mut BytesMut, pub_key: &[u8; 32], grease_seed: u8) {
+        // GREASE key_share entry (1 byte) + x25519 (32 bytes)
+        let grease_val = get_grease_value(grease_seed);
+        let entries_len = 4 + 1 + 4 + 32; // grease(4+1) + x25519(4+32)
+        buf.put_u16(0x0033);
+        buf.put_u16((entries_len + 2) as u16);
+        buf.put_u16(entries_len as u16);
+        // GREASE key share entry
+        buf.put_u16(grease_val);
+        buf.put_u16(1);
+        buf.put_u8(0);
+        // x25519 key share
+        buf.put_u16(0x001d);
+        buf.put_u16(32);
+        buf.put_slice(pub_key);
+    }
+
+    /// Supported Versions (type 0x002b).
+    fn supported_versions(buf: &mut BytesMut, grease_seed: u8) {
+        buf.put_u16(0x002b);
+        buf.put_u16(7);
+        buf.put_u8(6);
+        buf.put_u16(get_grease_value(grease_seed));
+        buf.put_u16(0x0304); // TLS 1.3
+        buf.put_u16(0x0303); // TLS 1.2
+    }
+
+    /// Compress Certificate (type 0x001b) — Chrome sends brotli (2).
+    fn compress_certificate(buf: &mut BytesMut) {
+        buf.put_u16(0x001b);
+        buf.put_u16(3);
+        buf.put_u8(2); // algorithms length
+        buf.put_u16(0x0002); // brotli
+    }
+
+    /// Application Settings (ALPS, type 0x4469) — Chrome-specific.
+    fn application_settings(buf: &mut BytesMut) {
+        buf.put_u16(0x4469);
+        buf.put_u16(3);
+        buf.put_u8(2);
+        buf.put_slice(b"h2");
+    }
+
+    /// PSK Key Exchange Modes (type 0x002d).
+    fn psk_key_exchange_modes(buf: &mut BytesMut) {
+        buf.put_u16(0x002d);
+        buf.put_u16(2);
+        buf.put_u8(1);
+        buf.put_u8(1); // psk_dhe_ke
+    }
+
+    /// Record Size Limit (type 0x001c) — Chrome sends 16385.
+    fn record_size_limit(buf: &mut BytesMut) {
+        buf.put_u16(0x001c);
+        buf.put_u16(2);
+        buf.put_u16(16385);
+    }
+
+    /// Trailing GREASE extension.
+    fn grease_tail(buf: &mut BytesMut, seed: u8) {
+        buf.put_u16(get_grease_value(seed));
+        buf.put_u16(1);
+        buf.put_u8(0);
+    }
+
+    /// Padding (type 0x0015) to target total ClientHello size.
+    fn padding(buf: &mut BytesMut, ext_start: usize) {
+        let current_len = buf.len() - ext_start;
+        let target_total_ext_len = 517;
+        if target_total_ext_len > current_len + 4 {
+            let pad_len = target_total_ext_len - current_len - 4;
+            buf.put_u16(0x0015);
+            buf.put_u16(pad_len as u16);
+            buf.put_slice(&vec![0u8; pad_len]);
+        }
+    }
+}
+
 fn construct_client_hello(
     server_name: &str,
     pub_key: &[u8; 32],
     short_id: &str,
     server_pub_key_hex: &str,
 ) -> Vec<u8> {
-    let mut buf = BytesMut::with_capacity(512);
+    let mut buf = BytesMut::with_capacity(1024);
+    let mut rng = rand::thread_rng();
 
     // --- Record Header ---
-    buf.put_u8(RECORD_TYPE_HANDSHAKE); // Handshake
-    buf.put_u16(0x0301); // TLS 1.0 (for compatibility)
-    buf.put_u16(0); // Placeholder for length
+    buf.put_u8(RECORD_TYPE_HANDSHAKE);
+    buf.put_u16(0x0301); // TLS 1.0 record-layer compatibility
+    buf.put_u16(0); // placeholder for record length
 
     // --- Handshake Header ---
     let ch_start = buf.len();
     buf.put_u8(1); // ClientHello
-    buf.put_u24(0); // Placeholder for length
+    buf.put_u24(0); // placeholder for handshake length
 
     // --- ClientHello Body ---
-    buf.put_u16(0x0303); // TLS 1.2
-    buf.put_slice(&generate_random()); // Random
+    buf.put_u16(0x0303); // TLS 1.2 legacy version
+    let mut random = [0u8; 32];
+    rng.fill_bytes(&mut random);
+    buf.put_slice(&random);
 
-    // Session ID (with REALITY short_id)
+    // Session ID — contains REALITY authentication material
     let pk_bytes = hex::decode(server_pub_key_hex).unwrap_or_default();
-    // Fix: Explicitly use Mac trait for new_from_slice to avoid ambiguity
     let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(&pk_bytes)
         .unwrap_or_else(|_| <Hmac<Sha256> as Mac>::new_from_slice(&[0u8; 32]).unwrap());
     mac.update(&hex::decode(short_id).unwrap_or_default());
@@ -260,36 +533,71 @@ fn construct_client_hello(
     buf.put_u8(session_id.len() as u8);
     buf.put_slice(&session_id);
 
-    // Cipher Suites
-    buf.put_u16(2); // Length
-    buf.put_u16(0x1301); // TLS_AES_128_GCM_SHA256
+    // Cipher Suites — Chrome 140+ ordering with leading GREASE
+    let suite_count = 1 + CHROME140_CIPHERS.len(); // GREASE + ciphers
+    buf.put_u16((suite_count * 2) as u16);
+    buf.put_u16(get_grease_value(random[0]));
+    for suite in CHROME140_CIPHERS {
+        buf.put_u16(suite);
+    }
 
     // Compression Methods
-    buf.put_u8(1); // Length
-    buf.put_u8(0); // null
+    buf.put_u8(1);
+    buf.put_u8(0);
 
-    // Extensions
+    // --- Extensions ---
     let ext_start = buf.len();
-    buf.put_u16(0); // Placeholder for length
+    buf.put_u16(0); // placeholder for extensions length
 
-    // SNI
-    let sni_ext_len = server_name.len() + 5;
-    buf.put_u16(0x0000); // SNI
-    buf.put_u16(sni_ext_len as u16);
-    buf.put_u16((sni_ext_len - 2) as u16);
-    buf.put_u8(0); // host_name
-    buf.put_u16(server_name.len() as u16);
-    buf.put_slice(server_name.as_bytes());
+    // Chrome 140+ extension ordering.
+    // Extensions in "fixed position" slots (SNI, key_share, supported_versions)
+    // must stay in their canonical positions. The middle-band extensions
+    // (session_ticket through record_size_limit) are shuffled within their
+    // band to produce per-connection variation without violating Chrome's
+    // observed distribution.
 
-    // Key Share
-    buf.put_u16(0x0033); // key_share
-    buf.put_u16(38);
-    buf.put_u16(36);
-    buf.put_u16(0x001d); // x25519
-    buf.put_u16(32);
-    buf.put_slice(pub_key);
+    // --- Fixed head: GREASE, SNI ---
+    ExtWriter::grease(&mut buf, random[1]);
+    ExtWriter::sni(&mut buf, server_name);
 
-    // Update lengths
+    // --- Shuffleable middle band ---
+    // We define a set of extension-writer closures and shuffle their
+    // execution order. This produces realistic per-connection jitter
+    // matching Chrome's observed behaviour.
+    use rand::seq::SliceRandom;
+
+    // Indices 0..10 map to the middle-band extensions.
+    let mut middle_order: Vec<u8> = (0..11).collect();
+    middle_order.shuffle(&mut rng);
+
+    for idx in middle_order {
+        match idx {
+            0 => ExtWriter::extended_master_secret(&mut buf),
+            1 => ExtWriter::renegotiation_info(&mut buf),
+            2 => ExtWriter::supported_groups(&mut buf, random[2]),
+            3 => ExtWriter::ec_point_formats(&mut buf),
+            4 => ExtWriter::session_ticket(&mut buf),
+            5 => ExtWriter::alpn(&mut buf, server_name),
+            6 => ExtWriter::status_request(&mut buf),
+            7 => ExtWriter::delegated_credentials(&mut buf),
+            8 => ExtWriter::signature_algorithms(&mut buf),
+            9 => ExtWriter::sct(&mut buf),
+            10 => ExtWriter::compress_certificate(&mut buf),
+            _ => {}
+        }
+    }
+
+    // --- Fixed tail: key_share, supported_versions, psk, record_size_limit,
+    //     application_settings, GREASE tail, padding ---
+    ExtWriter::key_share(&mut buf, pub_key, random[4]);
+    ExtWriter::supported_versions(&mut buf, random[3]);
+    ExtWriter::psk_key_exchange_modes(&mut buf);
+    ExtWriter::record_size_limit(&mut buf);
+    ExtWriter::application_settings(&mut buf);
+    ExtWriter::grease_tail(&mut buf, random[5]);
+    ExtWriter::padding(&mut buf, ext_start);
+
+    // --- Fixup lengths ---
     let ext_len = buf.len() - ext_start - 2;
     buf[ext_start..ext_start + 2].copy_from_slice(&(ext_len as u16).to_be_bytes());
 
@@ -380,9 +688,9 @@ pub async fn listen(
                                     remote_addr.to_string(),
                                 )
                                 .await
-                                {
-                                    warn!("VLESS handler error: {}", e);
-                                }
+                            {
+                                warn!("VLESS handler error: {}", e);
+                            }
                         } else {
                             warn!("REALITY: No VLESS inbound found to handle stream.");
                         }
@@ -804,12 +1112,11 @@ fn extract_handshake_params_robust(client_hello: &[u8]) -> Option<([u8; 32], [u8
                     u16::from_be_bytes([client_hello[k_idx + 2], client_hello[k_idx + 3]]) as usize;
                 k_idx += 4;
 
-                if group == 0x001d
-                    && k_len == 32 && k_idx + 32 <= k_end {
-                        let mut key = [0u8; 32];
-                        key.copy_from_slice(&client_hello[k_idx..k_idx + 32]);
-                        return Some((random, key));
-                    }
+                if group == 0x001d && k_len == 32 && k_idx + 32 <= k_end {
+                    let mut key = [0u8; 32];
+                    key.copy_from_slice(&client_hello[k_idx..k_idx + 32]);
+                    return Some((random, key));
+                }
                 k_idx += k_len;
             }
         }
@@ -862,7 +1169,7 @@ impl BufPutExt for BytesMut {
 }
 
 pub struct RealityStream {
-    inner: BoxedStream,
+    inner: BoxedTrinityTransport,
     read_cipher: Aes128Gcm,
     read_iv: [u8; 12],
     read_seq: u64,
@@ -874,9 +1181,37 @@ pub struct RealityStream {
     write_buf: BytesMut,
 }
 
+impl TrinityTransport for RealityStream {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        self.inner.switch_carrier(new_carrier)
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        self.inner.apply_fragmentation()
+    }
+
+    fn handover(self, new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Ok(Self {
+            inner: self.inner.handover(new_tal)?,
+            read_cipher: self.read_cipher,
+            read_iv: self.read_iv,
+            read_seq: self.read_seq,
+            write_cipher: self.write_cipher,
+            write_iv: self.write_iv,
+            write_seq: self.write_seq,
+            read_buf: self.read_buf,
+            incomplete_in: self.incomplete_in,
+            write_buf: self.write_buf,
+        })
+    }
+}
+
 impl RealityStream {
     pub fn new(
-        inner: BoxedStream,
+        inner: BoxedTrinityTransport,
         read_cipher: Aes128Gcm,
         read_iv: [u8; 12],
         write_cipher: Aes128Gcm,

@@ -52,9 +52,10 @@ pub async fn poll_doq_signals(endpoint: &str, domain: &str, psk: &[u8]) -> Resul
     for txt in response.iter() {
         for bytes in txt.txt_data() {
             if let Ok(b64_str) = std::str::from_utf8(bytes)
-                && let Ok(plaintext) = decrypt_signaling_payload(psk, b64_str) {
-                    decrypted_signals.push(plaintext);
-                }
+                && let Ok(plaintext) = decrypt_signaling_payload(psk, b64_str)
+            {
+                decrypted_signals.push(plaintext);
+            }
         }
     }
 

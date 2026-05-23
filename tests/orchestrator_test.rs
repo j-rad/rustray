@@ -14,10 +14,10 @@ async fn test_orchestrator_config_and_creation() {
         health_interval_ms: 5000,
         failover_threshold: 3,
     };
-    
+
     // We mock building an orchestrator and running background thread
     let _orchestrator = Orchestrator::new(config.clone());
-    
+
     // Test properties
     assert_eq!(config.health_interval_ms, 5000);
 }

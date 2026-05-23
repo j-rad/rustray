@@ -1,6 +1,6 @@
 // tests/fec_recovery_test.rs
-use rustray::fec::rs::{FecEncoder, FecDecoder};
 use bytes::Bytes;
+use rustray::fec::rs::{FecDecoder, FecEncoder};
 
 #[test]
 fn test_rs_recovery_30_percent_loss() {
@@ -33,9 +33,18 @@ fn test_rs_recovery_30_percent_loss() {
 
     // 5. Verify
     for i in 0..data_shards {
-        assert_eq!(original_data[i].to_vec(), reconstructed[i], "Shard {} mismatch", i);
+        assert_eq!(
+            original_data[i].to_vec(),
+            reconstructed[i],
+            "Shard {} mismatch",
+            i
+        );
     }
-    println!("FEC Reconstruction successful with {}/{} packets lost", lost_indices.len(), data_shards + parity_shards);
+    println!(
+        "FEC Reconstruction successful with {}/{} packets lost",
+        lost_indices.len(),
+        data_shards + parity_shards
+    );
 }
 
 #[test]
@@ -63,5 +72,8 @@ fn test_rs_impossible_recovery() {
 
     // Decoding should fail
     let result = decoder.decode(received_shards);
-    assert!(result.is_err(), "Decoding should have failed due to excessive loss");
+    assert!(
+        result.is_err(),
+        "Decoding should have failed due to excessive loss"
+    );
 }

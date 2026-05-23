@@ -6,7 +6,7 @@ use crate::config::{HttpProxyOutboundSettings, HttpProxySettings};
 use crate::error::Result;
 use crate::outbounds::Outbound;
 use crate::router::Router;
-use crate::transport::BoxedStream;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::Duration;
@@ -17,7 +17,7 @@ use tracing::debug;
 pub async fn listen_stream(
     router: Arc<Router>,
     state: Arc<StatsManager>,
-    mut stream: BoxedStream,
+    mut stream: BoxedTrinityTransport,
     _settings: HttpProxySettings,
     source: String,
 ) -> Result<()> {
@@ -92,7 +92,7 @@ impl HttpOutbound {
 impl Outbound for HttpOutbound {
     async fn handle(
         &self,
-        mut in_stream: BoxedStream,
+        mut in_stream: BoxedTrinityTransport,
         host: String,
         port: u16,
         policy: Arc<LevelPolicy>,
@@ -113,7 +113,7 @@ impl Outbound for HttpOutbound {
         }
     }
 
-    async fn dial(&self, host: String, port: u16) -> Result<BoxedStream> {
+    async fn dial(&self, host: String, port: u16) -> Result<BoxedTrinityTransport> {
         let proxy_addr = format!("{}:{}", self.settings.address, self.settings.port);
         debug!(
             "HTTP Proxy: Connecting to proxy at {} for {}:{}",
@@ -143,7 +143,7 @@ impl Outbound for HttpOutbound {
 
         if response.contains("200 OK") {
             debug!("HTTP Proxy: Tunnel established to {}:{}", host, port);
-            Ok(Box::new(out_stream) as BoxedStream)
+            Ok(Box::new(out_stream) as BoxedTrinityTransport)
         } else {
             Err(anyhow::anyhow!("Proxy rejected connection: {}", response))
         }

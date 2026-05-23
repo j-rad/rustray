@@ -1,0 +1,69 @@
+name: RustRay CI
+
+on:
+  push:
+    branches: [ main, master, "jules/*" ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
+
+    - name: Install Protobuf Compiler
+      run: sudo apt-get install -y protobuf-compiler
+
+    - name: Download Protos
+      run: |
+        mkdir -p proto
+        download() {
+          url="https://raw.githubusercontent.com/XTLS/RustRay-core/main/$1"
+          dir="proto/$(dirname "$1")"
+          mkdir -p "$dir"
+          curl -L -s -o "proto/$1" "$url"
+        }
+        download "common/net/destination.proto"
+        download "common/net/port.proto"
+        download "common/net/network.proto"
+        download "common/net/address.proto"
+        download "common/log/log.proto"
+        download "common/serial/typed_message.proto"
+        download "common/protocol/user.proto"
+        download "transport/internet/config.proto"
+        download "transport/internet/headers/http/config.proto"
+        download "core/config.proto"
+        download "app/dispatcher/config.proto"
+        download "app/observatory/config.proto"
+        download "app/observatory/command/command.proto"
+        download "app/log/config.proto"
+        download "app/log/command/config.proto"
+        download "app/policy/config.proto"
+        download "app/proxyman/config.proto"
+        download "app/proxyman/command/command.proto"
+        download "app/router/config.proto"
+        download "app/dns/config.proto"
+        download "app/stats/config.proto"
+        download "app/stats/command/command.proto"
+
+    - name: Check
+      run: cargo check --verbose
+
+    - name: Run Tests
+      run: cargo test --verbose
+
+    - name: Run Memory Leak Test
+      run: |
+        sudo apt-get install -y valgrind netcat-openbsd
+        chmod +x scripts/leak_test.sh
+        # scripts/leak_test.sh # Commented out by default to save CI time, uncomment if needed.
+

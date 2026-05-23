@@ -14,7 +14,6 @@
 //! Because `aya` is not locally vendored, we generate raw BPF instructions
 //! using the kernel's `bpf_insn` format and load them via `libc::syscall(SYS_bpf)`.
 
-
 // ============================================================================
 // BPF INSTRUCTION ENCODING
 // ============================================================================
@@ -414,7 +413,10 @@ pub fn generate_tc_classifier(config: &SlicerConfig) -> Vec<BpfInsn> {
     // For general range, we do: R0 = R0 mod range via: R0 = R0 - (R0 / range) * range
     // Simpler for BPF: AND mask with next power of 2 - 1, then clamp
     // For 5-20 range (16 values), mask = 0x0F works perfectly
-    prog.push(and64_imm(BPF_REG_0, (range as u32).next_power_of_two() as i32 - 1));
+    prog.push(and64_imm(
+        BPF_REG_0,
+        (range as u32).next_power_of_two() as i32 - 1,
+    ));
     // Clamp to actual range if AND gave us too high
     // if R0 >= range, R0 = range - 1
     prog.push(BpfInsn::new(
@@ -588,11 +590,7 @@ mod tests {
         for (i, insn) in prog.iter().enumerate() {
             let class = insn.code & 0x07;
             let op = insn.code & 0xF0;
-            if class == BPF_JMP
-                && op != BPF_CALL
-                && op != BPF_EXIT
-                && op != BPF_JA
-            {
+            if class == BPF_JMP && op != BPF_CALL && op != BPF_EXIT && op != BPF_JA {
                 assert!(
                     insn.off >= 0,
                     "insn {} has negative jump offset {}: backward jumps not expected",

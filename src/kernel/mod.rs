@@ -11,4 +11,5 @@
 
 pub mod ebpf_loader;
 pub mod ebpf_program;
+pub mod firewall;
 pub mod ghoststream;

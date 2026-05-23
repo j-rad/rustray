@@ -8,63 +8,146 @@
 
 use crate::config::TlsSettings;
 use crate::error::Result;
-use crate::transport::BoxedStream;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
+use crate::transport::service_masquerade::MasqueradeStrategy;
+use crate::transport::tls_mimicry::GhostProtocol;
 use crate::transport::utls::{self};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::{ClientConfig, RootCertStore, ServerConfig};
-use std::io::BufReader;
+use std::io::{self, BufReader};
 use std::sync::Arc;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio_rustls::{TlsAcceptor, TlsConnector};
 use tracing::{debug, warn};
 
 /// Wrap a stream with TLS client encryption
 pub async fn wrap_tls_client(
-    mut stream: BoxedStream,
+    stream: BoxedTrinityTransport,
     server_name: &str,
     settings: &TlsSettings,
-) -> Result<BoxedStream> {
+) -> Result<BoxedTrinityTransport> {
+    wrap_tls_client_ext(stream, server_name, settings, None).await
+}
+
+/// Simple TLS client wrapper using default settings (no uTLS fingerprint, no masquerade).
+/// Used by CDN-Loop and REALITY V2 when a quick TLS 1.3 connection is needed.
+pub async fn wrap_tls_client_simple(
+    stream: BoxedTrinityTransport,
+    server_name: &str,
+) -> Result<BoxedTrinityTransport> {
+    let settings = TlsSettings {
+        server_name: Some(server_name.to_string()),
+        allow_insecure: Some(false),
+        alpn: Some(vec!["h2".to_string(), "http/1.1".to_string()]),
+        ..Default::default()
+    };
+    wrap_tls_client(stream, server_name, &settings).await
+}
+
+/// Wrap a stream with TLS client encryption and optional service masquerade
+pub async fn wrap_tls_client_ext(
+    mut stream: BoxedTrinityTransport,
+    server_name: &str,
+    settings: &crate::config::TlsSettings,
+    masquerade: Option<MasqueradeStrategy<'_>>,
+) -> Result<BoxedTrinityTransport> {
     debug!("TLS: Wrapping client connection to {}", server_name);
 
     if let Some(pqc) = &settings.pqc
-        && pqc.enabled {
-            debug!("TLS: PQC Handshake initiated");
-            let server_pk_hex = pqc.server_public_key.as_deref().unwrap_or("");
-            let server_pk = hex::decode(server_pk_hex)
-                .map_err(|e| anyhow::anyhow!("Invalid PQC server public key hex: {}", e))?;
+        && pqc.enabled
+    {
+        debug!("TLS: PQC Handshake initiated");
+        let server_pk_hex = pqc.server_public_key.as_deref().unwrap_or("");
+        let server_pk = hex::decode(server_pk_hex)
+            .map_err(|e| anyhow::anyhow!("Invalid PQC server public key hex: {}", e))?;
 
-            // For now, always generate ephemeral Dilithium identity for client
-            let signing_kp = crate::transport::pqc::DilithiumKeypair::generate();
-            stream =
-                crate::transport::pqc::wrap_pqc_client(stream, &server_pk, &signing_kp).await?;
+        // For now, always generate ephemeral Dilithium identity for client
+        let signing_kp = crate::transport::pqc::DilithiumKeypair::generate();
+        stream = crate::transport::pqc::wrap_pqc_client(stream, &server_pk, &signing_kp).await?;
+    }
+
+    if let Some(strategy) = &masquerade
+        && let Some(ghost) = &strategy.ghost
+        && ghost.protocol.is_pre_tls()
+    {
+        debug!(
+            "Mimicry: Sending pre-TLS ghost header: {}",
+            ghost.description
+        );
+        stream.write_all(&ghost.bytes).await?;
+
+        if ghost.protocol == GhostProtocol::PsqlSslRequest {
+            // Postgres expects 'S' (SSL supported)
+            let mut resp = [0u8; 1];
+            stream.read_exact(&mut resp).await?;
+            if resp[0] != b'S' {
+                warn!(
+                    "Mimicry: Server rejected PsqlSslRequest, expected 'S' but got '{}'",
+                    resp[0] as char
+                );
+            }
         }
+    }
 
-    if let Some(fingerprint_str) = &settings.fingerprint {
-        debug!("TLS: Using fingerprint: {}", fingerprint_str);
-
-        let connector = if fingerprint_str.eq_ignore_ascii_case("custom") {
-            utls::build_custom_connector(settings.alpn.clone(), Some(server_name.to_string()))
-                .map_err(|e| anyhow::anyhow!("Failed to build custom uTLS connector: {}", e))?
+    // Determine the connector (Prefer masquerade profile over static settings)
+    let connector_opt = if let Some(strategy) = &masquerade {
+        debug!(
+            "TLS: Using masquerade profile for lane: {:?}",
+            strategy.category
+        );
+        Some(utls::build_from_profile(
+            strategy.profile,
+            strategy.alpn.clone(),
+            Some(server_name.to_string()),
+            settings.pqc.as_ref(),
+        )?)
+    } else if let Some(fingerprint_str) = &settings.fingerprint {
+        debug!("TLS: Using static fingerprint: {}", fingerprint_str);
+        if fingerprint_str.eq_ignore_ascii_case("custom") {
+            Some(utls::build_custom_connector(
+                settings.alpn.clone(),
+                Some(server_name.to_string()),
+                settings.pqc.as_ref(),
+            )?)
         } else {
-            utls::get_utls_connector(fingerprint_str)
-                .map_err(|e| anyhow::anyhow!("Failed to create uTLS connector: {}", e))?
-        };
-
-        if settings.allow_insecure.unwrap_or(false) {
-            warn!(
-                "TLS: allow_insecure is set but might be ignored by uTLS connector in this version"
-            );
+            Some(utls::get_utls_connector(fingerprint_str)?)
         }
+    } else {
+        None
+    };
+
+    if let Some(connector) = connector_opt {
+        if settings.allow_insecure.unwrap_or(false) {
+            warn!("TLS: allow_insecure is set but might be ignored by uTLS connector");
+        }
+
+        let server_name_obj = ServerName::try_from(server_name.to_string())
+            .map_err(|_| anyhow::anyhow!("Invalid server name: {}", server_name))?;
 
         let tls_stream = connector
-            .connect_async(server_name, stream)
+            .connect(server_name_obj, stream)
             .await
             .map_err(|e| anyhow::anyhow!("uTLS connection failed: {}", e))?;
 
-        debug!("TLS: uTLS Client handshake completed");
-        return Ok(Box::new(tls_stream));
+        debug!("TLS: Handshake completed (uTLS/Profile)");
+        let mut final_stream: BoxedTrinityTransport = Box::new(tls_stream);
+
+        // --- Phase 14b: Post-TLS Ghost Injection ---
+        if let Some(strategy) = &masquerade
+            && let Some(ghost) = &strategy.ghost
+            && ghost.protocol.is_post_tls()
+        {
+            debug!(
+                "Mimicry: Injecting post-TLS ghost header: {}",
+                ghost.description
+            );
+            final_stream.write_all(&ghost.bytes).await?;
+        }
+
+        return Ok(final_stream);
     }
 
-    // Standard Rustls Logic
+    // Standard Rustls Logic (Fallback if no profile or fingerprint)
     // Build root certificate store
     let mut root_store = RootCertStore::empty();
 
@@ -72,15 +155,26 @@ pub async fn wrap_tls_client(
     root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 
     // Build client config
+    let mut provider = rustls::crypto::aws_lc_rs::default_provider();
+    if let Some(pqc) = &settings.pqc
+        && pqc.enabled
+    {
+        provider.kx_groups = vec![crate::transport::pqc::HybridGroup::X25519MlKem768.rustls_group()];
+    }
+
+    let config_builder = ClientConfig::builder_with_provider(Arc::new(provider))
+        .with_safe_default_protocol_versions()
+        .map_err(|e| anyhow::anyhow!("TLS: Failed to set protocol versions: {}", e))?;
+
     let config = if settings.allow_insecure.unwrap_or(false) {
         warn!("TLS: Insecure mode enabled - certificate verification disabled");
 
-        ClientConfig::builder()
+        config_builder
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(AllowAnyCert))
             .with_no_client_auth()
     } else {
-        ClientConfig::builder()
+        config_builder
             .with_root_certificates(root_store)
             .with_no_client_auth()
     };
@@ -101,23 +195,24 @@ pub async fn wrap_tls_client(
     let tls_stream = connector.connect(server_name, stream).await?;
 
     debug!("TLS: Client handshake completed");
-    Ok(Box::new(tls_stream))
+    Ok(Box::new(tls_stream) as BoxedTrinityTransport)
 }
 
 /// Wrap a stream with TLS server encryption
 pub async fn wrap_tls_server(
-    mut stream: BoxedStream,
+    mut stream: BoxedTrinityTransport,
     settings: &TlsSettings,
-) -> Result<BoxedStream> {
+) -> Result<BoxedTrinityTransport> {
     debug!("TLS: Accepting server connection");
 
     if let Some(pqc) = &settings.pqc
-        && pqc.enabled {
-            debug!("TLS: PQC Server Handshake initiated");
-            // Generate ephemeral keypair if persistent storage missing format
-            let server_kp = crate::transport::pqc::HybridKeypair::generate();
-            stream = crate::transport::pqc::wrap_pqc_server(stream, &server_kp).await?;
-        }
+        && pqc.enabled
+    {
+        debug!("TLS: PQC Server Handshake initiated");
+        // Generate ephemeral keypair if persistent storage missing format
+        let server_kp = crate::transport::pqc::HybridKeypair::generate();
+        stream = crate::transport::pqc::wrap_pqc_server(stream, &server_kp).await?;
+    }
 
     let certs = settings
         .certificates
@@ -179,7 +274,16 @@ pub async fn wrap_tls_server(
     };
 
     // Build server config
-    let mut config = ServerConfig::builder()
+    let mut provider = rustls::crypto::aws_lc_rs::default_provider();
+    if let Some(pqc) = &settings.pqc
+        && pqc.enabled
+    {
+        provider.kx_groups = vec![crate::transport::pqc::HybridGroup::X25519MlKem768.rustls_group()];
+    }
+
+    let mut config = ServerConfig::builder_with_provider(Arc::new(provider))
+        .with_safe_default_protocol_versions()
+        .map_err(|e| anyhow::anyhow!("TLS: Failed to set protocol versions: {}", e))?
         .with_no_client_auth()
         .with_single_cert(cert_chain, private_key)?;
 
@@ -192,7 +296,41 @@ pub async fn wrap_tls_server(
     let tls_stream = acceptor.accept(stream).await?;
 
     debug!("TLS: Server handshake completed");
-    Ok(Box::new(tls_stream))
+    Ok(Box::new(tls_stream) as BoxedTrinityTransport)
+}
+
+impl<S: AsyncRead + AsyncWrite + Send + Unpin + 'static> TrinityTransport for tokio_rustls::client::TlsStream<S> {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, _new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        Err(io::Error::new(io::ErrorKind::Unsupported, "TlsStream: switch_carrier not supported"))
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+
+    fn handover(self, _new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Err(anyhow::anyhow!("TlsStream: handover not supported"))
+    }
+}
+
+impl<S: AsyncRead + AsyncWrite + Send + Unpin + 'static> TrinityTransport for tokio_rustls::server::TlsStream<S> {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, _new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        Err(io::Error::new(io::ErrorKind::Unsupported, "TlsStream: switch_carrier not supported"))
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+
+    fn handover(self, _new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Err(anyhow::anyhow!("TlsStream: handover not supported"))
+    }
 }
 
 // --- Insecure Certificate Verifier ---

@@ -3,6 +3,8 @@ use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
+use crate::error::Result;
 
 /// A stream that reads from a prefix buffer before reading from the underlying stream.
 pub struct PrefixedStream<S> {
@@ -50,4 +52,22 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for PrefixedStream<S> {
     }
 }
 
-// Manual implementation removed to avoid conflict with blanket impl in transport/mod.rs
+impl<S: TrinityTransport + Unpin + Send + 'static> TrinityTransport for PrefixedStream<S> {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        self.stream.switch_carrier(new_carrier)
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        self.stream.apply_fragmentation()
+    }
+
+    fn handover(self, new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Ok(Self {
+            stream: self.stream.handover(new_tal)?,
+            prefix: self.prefix,
+        })
+    }
+}

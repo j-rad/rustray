@@ -1,9 +1,10 @@
-// src/lib.rs
-/// Public module for application-wide error types and results.
 pub mod error;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod config;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod core;
 
 // use mimalloc::MiMalloc; // Disabled to avoid warning if not used or duplicate.
 // Actually, it IS used in global_allocator below if features match.
@@ -71,6 +72,12 @@ pub mod plugin;
 pub mod api;
 
 #[cfg(not(target_arch = "wasm32"))]
+pub mod ui;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod services;
+
+#[cfg(not(target_arch = "wasm32"))]
 pub mod scanner;
 
 #[allow(dead_code)]
@@ -99,7 +106,7 @@ pub mod kernel;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod ffi;
 #[cfg(not(target_arch = "wasm32"))]
-pub use ffi::RustRayResult;
+pub use ffi::RayResult;
 
 /// Public module for shared types (migrated from shared-types crate)
 pub mod types;
@@ -131,6 +138,8 @@ use crate::app::observatory::Observatory;
 use crate::app::reverse::ReverseManager;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::app::stats::StatsManager;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::db::DbManager;
 use crate::error::Result;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::inbounds::InboundManager;
@@ -140,8 +149,6 @@ use crate::outbounds::OutboundManager;
 use crate::router::Router;
 #[cfg(all(feature = "minimal-server", not(target_arch = "wasm32")))]
 use actix_web::HttpResponse;
-#[cfg(not(target_arch = "wasm32"))]
-use crate::db::DbManager;
 #[cfg(not(target_arch = "wasm32"))]
 use actix_web::{App, HttpServer, web};
 use std::sync::Arc;
@@ -317,15 +324,17 @@ pub async fn run_server(
 
     // 6. Initialize and run Observatory
     if let Some(obs_config) = stats_manager.config.load().observatory.clone()
-        && !obs_config.probe_interval.is_empty() && obs_config.probe_interval != "0" {
-            tracing::info!("Observatory module is enabled.");
-            let observatory = Arc::new(Observatory::new(
-                obs_config,
-                outbound_manager.clone(),
-                stats_manager.clone(),
-            ));
-            observatory.run();
-        }
+        && !obs_config.probe_interval.is_empty()
+        && obs_config.probe_interval != "0"
+    {
+        tracing::info!("Observatory module is enabled.");
+        let observatory = Arc::new(Observatory::new(
+            obs_config,
+            outbound_manager.clone(),
+            stats_manager.clone(),
+        ));
+        observatory.run();
+    }
 
     // 7. Spawn InboundManager as a background task
     let inbound_stats = stats_manager.clone();

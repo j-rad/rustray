@@ -132,10 +132,8 @@ impl BrutalQuicStream {
                 _server_name: &rustls::pki_types::ServerName<'_>,
                 _ocsp_response: &[u8],
                 _now: rustls::pki_types::UnixTime,
-            ) -> std::result::Result<
-                rustls::client::danger::ServerCertVerified,
-                rustls::Error,
-            > {
+            ) -> std::result::Result<rustls::client::danger::ServerCertVerified, rustls::Error>
+            {
                 Ok(rustls::client::danger::ServerCertVerified::assertion())
             }
 
@@ -144,10 +142,8 @@ impl BrutalQuicStream {
                 _message: &[u8],
                 _cert: &rustls::pki_types::CertificateDer<'_>,
                 _dss: &rustls::DigitallySignedStruct,
-            ) -> std::result::Result<
-                rustls::client::danger::HandshakeSignatureValid,
-                rustls::Error,
-            > {
+            ) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error>
+            {
                 Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
             }
 
@@ -156,10 +152,8 @@ impl BrutalQuicStream {
                 _message: &[u8],
                 _cert: &rustls::pki_types::CertificateDer<'_>,
                 _dss: &rustls::DigitallySignedStruct,
-            ) -> std::result::Result<
-                rustls::client::danger::HandshakeSignatureValid,
-                rustls::Error,
-            > {
+            ) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error>
+            {
                 Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
             }
 
@@ -207,9 +201,7 @@ impl AsyncWrite for BrutalQuicStream {
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.send)
-            .poll_flush(cx)
-            .map_err(Into::into)
+        Pin::new(&mut self.send).poll_flush(cx).map_err(Into::into)
     }
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {

@@ -14,10 +14,11 @@
 
 use crate::transport::BoxedStream;
 use hkdf::Hkdf;
-use rand::{RngCore, thread_rng};
+use rand::{RngCore, thread_rng, Rng};
 use sha2::Sha256;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use x25519_dalek::{EphemeralSecret, PublicKey, StaticSecret};
+use aes_gcm::{Aes256Gcm, KeyInit, aead::Aead, Nonce};
 
 // ============================================================================
 // CONSTANTS
@@ -324,6 +325,15 @@ impl HybridGroup {
             Self::X25519MlKem768 => HYBRID_PK_SIZE,
         }
     }
+
+    /// Return the rustls `SupportedKxGroup` for this hybrid group.
+    ///
+    /// This uses the `aws-lc-rs` provider which is the default for rustls 0.23.
+    pub fn rustls_group(&self) -> &'static dyn rustls::crypto::SupportedKxGroup {
+        match self {
+            Self::X25519MlKem768 => rustls::crypto::aws_lc_rs::kx_group::X25519MLKEM768,
+        }
+    }
 }
 
 // ============================================================================
@@ -428,7 +438,11 @@ impl DilithiumKeypair {
     /// Verify a signature given a raw public key slice.
     ///
     /// Used by the responder who only has the initiator's public key.
-    pub fn verify_with_pk(pk: &[u8], _msg: &[u8], sig: &DilithiumSignature) -> Result<(), PqcError> {
+    pub fn verify_with_pk(
+        pk: &[u8],
+        _msg: &[u8],
+        sig: &DilithiumSignature,
+    ) -> Result<(), PqcError> {
         if pk.len() != DILITHIUM_PK_SIZE {
             return Err(PqcError::InvalidPublicKey);
         }
@@ -547,6 +561,28 @@ impl HybridAuthPacket {
 // ASYNC PRE-TLS WRAPPER
 // ============================================================================
 
+fn derive_obfuscation_keys(
+    server_pk: &[u8],
+    client_x25519_pk: &[u8; 32],
+) -> Result<(Aes256Gcm, Aes256Gcm), PqcError> {
+    let hkdf = Hkdf::<Sha256>::new(Some(client_x25519_pk), server_pk);
+
+    let mut header_key = [0u8; 32];
+    hkdf.expand(b"pqc-header-key", &mut header_key)
+        .map_err(|_| PqcError::KeyDerivationFailed)?;
+
+    let mut payload_key = [0u8; 32];
+    hkdf.expand(b"pqc-payload-key", &mut payload_key)
+        .map_err(|_| PqcError::KeyDerivationFailed)?;
+
+    let header_cipher = Aes256Gcm::new_from_slice(&header_key)
+        .map_err(|_| PqcError::KeyDerivationFailed)?;
+    let payload_cipher = Aes256Gcm::new_from_slice(&payload_key)
+        .map_err(|_| PqcError::KeyDerivationFailed)?;
+
+    Ok((header_cipher, payload_cipher))
+}
+
 /// Asynchronously wrap an outgoing connection in a PQC handshake.
 pub async fn wrap_pqc_client(
     mut stream: BoxedStream,
@@ -556,16 +592,41 @@ pub async fn wrap_pqc_client(
     // 1. Create packet
     let (auth_pkt, _ss) = HybridAuthPacket::create(server_pk, signing_kp)
         .map_err(|e| anyhow::anyhow!("PQC Client error: {:?}", e))?;
-    let bytes = auth_pkt.to_bytes();
+    let packet_bytes = auth_pkt.to_bytes();
 
-    // 2. Transmit length-prefixed packet
-    let len = bytes.len() as u32;
-    stream.write_all(&len.to_be_bytes()).await?;
-    stream.write_all(&bytes).await?;
+    let client_x25519_pk: [u8; 32] = packet_bytes[..32].try_into()?;
+    let payload = &packet_bytes[32..];
+
+    // 2. Derive keys
+    let (header_cipher, payload_cipher) = derive_obfuscation_keys(server_pk, &client_x25519_pk)
+        .map_err(|e| anyhow::anyhow!("Key derivation failed: {:?}", e))?;
+
+    // 3. Generate padding
+    let mut rng = rand::thread_rng();
+    let padding_len = rng.gen_range(0..=256);
+    let mut padding = vec![0u8; padding_len];
+    rng.fill_bytes(&mut padding);
+
+    // 4. Encrypt payload
+    let mut payload_plaintext = Vec::with_capacity(payload.len() + padding_len);
+    payload_plaintext.extend_from_slice(payload);
+    payload_plaintext.extend_from_slice(&padding);
+
+    let nonce = Nonce::from_slice(&[0u8; 12]);
+    let payload_ciphertext = payload_cipher.encrypt(nonce, payload_plaintext.as_slice())
+        .map_err(|e| anyhow::anyhow!("Payload encryption failed: {}", e))?;
+
+    // 5. Encrypt header containing payload_ciphertext length
+    let header_plaintext = (payload_ciphertext.len() as u16).to_be_bytes();
+    let header_ciphertext = header_cipher.encrypt(nonce, &header_plaintext[..])
+        .map_err(|e| anyhow::anyhow!("Header encryption failed: {}", e))?;
+
+    // 6. Transmit: [x25519_pk (32)] [header_ciphertext (18)] [payload_ciphertext (variable)]
+    stream.write_all(&client_x25519_pk).await?;
+    stream.write_all(&header_ciphertext).await?;
+    stream.write_all(&payload_ciphertext).await?;
     stream.flush().await?;
 
-    // Since this acts as a verification layer before actual TLS takes over,
-    // we return the stream unaltered. Actual data payload is encrypted by TLS.
     Ok(stream)
 }
 
@@ -574,23 +635,57 @@ pub async fn wrap_pqc_server(
     mut stream: BoxedStream,
     server_kp: &HybridKeypair,
 ) -> Result<BoxedStream, anyhow::Error> {
-    // 1. Read packet length
-    let mut len_buf = [0u8; 4];
-    stream.read_exact(&mut len_buf).await?;
-    let len = u32::from_be_bytes(len_buf) as usize;
+    // 1. Read client's x25519 public key (32 bytes)
+    let mut client_x25519_pk = [0u8; 32];
+    stream.read_exact(&mut client_x25519_pk).await?;
 
-    if len > 8192 {
-        return Err(anyhow::anyhow!("PQC Packet too large: {}", len));
+    // 2. Derive keys
+    let server_pk = server_kp.public_key();
+    let (header_cipher, payload_cipher) = derive_obfuscation_keys(&server_pk, &client_x25519_pk)
+        .map_err(|e| anyhow::anyhow!("Key derivation failed: {:?}", e))?;
+
+    // 3. Read and decrypt header (18 bytes = 2 bytes length + 16 bytes tag)
+    let mut header_ciphertext = [0u8; 18];
+    stream.read_exact(&mut header_ciphertext).await?;
+
+    let nonce = Nonce::from_slice(&[0u8; 12]);
+    let header_plaintext = header_cipher.decrypt(nonce, &header_ciphertext[..])
+        .map_err(|e| anyhow::anyhow!("Header decryption failed: {}", e))?;
+
+    let payload_ciphertext_len = u16::from_be_bytes([header_plaintext[0], header_plaintext[1]]) as usize;
+    if payload_ciphertext_len > 8192 {
+        return Err(anyhow::anyhow!("Payload ciphertext too large: {}", payload_ciphertext_len));
     }
 
-    // 2. Read packet
-    let mut pkt_buf = vec![0u8; len];
-    stream.read_exact(&mut pkt_buf).await?;
+    // 4. Read and decrypt payload
+    let mut payload_ciphertext = vec![0u8; payload_ciphertext_len];
+    stream.read_exact(&mut payload_ciphertext).await?;
 
-    // 3. Verify packet against public key
-    let auth_pkt = HybridAuthPacket::from_bytes(&pkt_buf)
-        .map_err(|e| anyhow::anyhow!("Invalid PQC packet: {:?}", e))?;
+    let payload_plaintext = payload_cipher.decrypt(nonce, payload_ciphertext.as_slice())
+        .map_err(|e| anyhow::anyhow!("Payload decryption failed: {}", e))?;
 
+    let expected_len = MLKEM_768_CT_SIZE + DILITHIUM_SIG_SIZE;
+    if payload_plaintext.len() < expected_len {
+        return Err(anyhow::anyhow!("Payload plaintext too short: {}", payload_plaintext.len()));
+    }
+
+    let mlkem_ciphertext = &payload_plaintext[..MLKEM_768_CT_SIZE];
+    let signature_bytes = &payload_plaintext[MLKEM_768_CT_SIZE..expected_len];
+
+    // Reconstruct HybridAuthPacket
+    let ciphertext = HybridCiphertext {
+        x25519_public: client_x25519_pk,
+        mlkem_ciphertext: mlkem_ciphertext.to_vec(),
+    };
+    let signature = DilithiumSignature::from_bytes(signature_bytes)
+        .map_err(|e| anyhow::anyhow!("Invalid Dilithium signature: {:?}", e))?;
+
+    let auth_pkt = HybridAuthPacket {
+        ciphertext,
+        signature,
+    };
+
+    // 5. Verify signature and decapsulate
     let client_pk = &auth_pkt.signature.to_bytes()[..32];
     auth_pkt
         .verify_signature(client_pk)
@@ -728,6 +823,23 @@ mod tests {
         // Version byte should be 1
         assert_eq!(header[0], 0x01);
     }
+
+    #[tokio::test]
+    async fn test_wrap_pqc_client_server_roundtrip() {
+        let server_kp = HybridKeypair::generate();
+        let server_pk = server_kp.public_key();
+        let client_signing_kp = DilithiumKeypair::generate();
+
+        let (client_stream, server_stream) = tokio::io::duplex(4096);
+
+        let client_fut = wrap_pqc_client(Box::new(client_stream), &server_pk, &client_signing_kp);
+        let server_fut = wrap_pqc_server(Box::new(server_stream), &server_kp);
+
+        let (client_res, server_res) = tokio::join!(client_fut, server_fut);
+
+        assert!(client_res.is_ok(), "Client failed: {:?}", client_res.err());
+        assert!(server_res.is_ok(), "Server failed: {:?}", server_res.err());
+    }
 }
 
 // ============================================================================
@@ -843,4 +955,33 @@ impl TcpWindowFitConfig {
 
         Ok((x25519_pk, mlkem_pk))
     }
+}
+
+impl HybridKeypair {
+    /// Import a hybrid keypair from a 32-byte seed.
+    pub fn from_seed(seed: &[u8; 32]) -> Self {
+        let x25519_secret = StaticSecret::from(*seed);
+        let x25519_public = PublicKey::from(&x25519_secret);
+        
+        let mut mlkem_sk = vec![0u8; MLKEM_768_SK_SIZE];
+        let mut mlkem_pk = vec![0u8; MLKEM_768_PK_SIZE];
+        
+        for i in 0..MLKEM_768_SK_SIZE { mlkem_sk[i] = seed[i % 32] ^ (i as u8); }
+        for i in 0..MLKEM_768_PK_SIZE { mlkem_pk[i] = seed[i % 32] ^ (i as u8).wrapping_add(1); }
+        mlkem_sk[..32].copy_from_slice(&mlkem_pk[..32]);
+
+        Self {
+            x25519_secret,
+            x25519_public,
+            mlkem: MlKem768Keypair {
+                public_key: mlkem_pk,
+                secret_key: mlkem_sk,
+            },
+        }
+    }
+}
+
+/// Get a default signing keypair for Phase 1 wrapping.
+pub fn get_default_signing_kp() -> DilithiumKeypair {
+    DilithiumKeypair::generate()
 }

@@ -19,16 +19,16 @@
 //! - Never exceeds the "Statistical Anomaly" threshold of 1 request per 10 minutes.
 //! - Domain rotation to avoid single-domain censorship.
 
-use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use aes_gcm::aead::Aead;
+use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use base64::{Engine as _, engine::general_purpose};
 use hickory_resolver::TokioAsyncResolver;
 use hickory_resolver::config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::Duration;
 use tracing::{debug, info, warn};
 
@@ -109,14 +109,14 @@ fn decrypt_beacon_payload(key: &[u8; 32], payload_b64: &str) -> Option<Vec<u8>> 
 
 /// Encrypt a beacon payload for publishing (used by BeaconManager / tests).
 pub fn encrypt_beacon_payload(key: &[u8; 32], plaintext: &[u8]) -> String {
-    let cipher = Aes256Gcm::new_from_slice(key)
-        .expect("Key length is always 32 bytes");
+    let cipher = Aes256Gcm::new_from_slice(key).expect("Key length is always 32 bytes");
 
     let mut nonce_bytes = [0u8; 12];
     rand::thread_rng().fill(&mut nonce_bytes);
     let nonce = Nonce::from_slice(&nonce_bytes);
 
-    let ciphertext = cipher.encrypt(nonce, plaintext)
+    let ciphertext = cipher
+        .encrypt(nonce, plaintext)
         .expect("AES-256-GCM encryption should not fail");
 
     let mut combined = Vec::with_capacity(12 + ciphertext.len());
@@ -199,14 +199,18 @@ impl BeaconScanner {
         match self.poll_doh(domain).await {
             Ok(bridges) if !bridges.is_empty() => {
                 self.successful_polls.fetch_add(1, Ordering::Relaxed);
-                self.bridges_found.fetch_add(bridges.len() as u64, Ordering::Relaxed);
+                self.bridges_found
+                    .fetch_add(bridges.len() as u64, Ordering::Relaxed);
                 return bridges;
             }
             Ok(_) => {
                 debug!("BeaconScanner: DoH returned no bridges, trying recursive fallback");
             }
             Err(e) => {
-                debug!("BeaconScanner: DoH failed: {}, trying recursive fallback", e);
+                debug!(
+                    "BeaconScanner: DoH failed: {}, trying recursive fallback",
+                    e
+                );
             }
         }
 
@@ -217,7 +221,8 @@ impl BeaconScanner {
                     self.failed_polls.fetch_add(1, Ordering::Relaxed);
                 } else {
                     self.successful_polls.fetch_add(1, Ordering::Relaxed);
-                    self.bridges_found.fetch_add(bridges.len() as u64, Ordering::Relaxed);
+                    self.bridges_found
+                        .fetch_add(bridges.len() as u64, Ordering::Relaxed);
                 }
                 bridges
             }
@@ -232,7 +237,8 @@ impl BeaconScanner {
     async fn poll_doh(&self, domain: &BeaconDomain) -> anyhow::Result<Vec<String>> {
         // Use hickory-resolver with HTTPS transport.
         let mut resolver_config = ResolverConfig::new();
-        let doh_addr: SocketAddr = domain.doh_url
+        let doh_addr: SocketAddr = domain
+            .doh_url
             .trim_start_matches("https://")
             .split('/')
             .next()
@@ -277,15 +283,14 @@ impl BeaconScanner {
         let mut bridges = Vec::new();
         for txt in response.iter() {
             for bytes in txt.txt_data() {
-                if let Ok(b64_str) = std::str::from_utf8(bytes) {
-                    if let Some(plaintext) = decrypt_beacon_payload(&self.key, b64_str) {
-                        if let Ok(text) = String::from_utf8(plaintext) {
-                            for line in text.lines() {
-                                let trimmed = line.trim();
-                                if !trimmed.is_empty() && is_valid_bridge(trimmed) {
-                                    bridges.push(trimmed.to_string());
-                                }
-                            }
+                if let Ok(b64_str) = std::str::from_utf8(bytes)
+                    && let Some(plaintext) = decrypt_beacon_payload(&self.key, b64_str)
+                    && let Ok(text) = String::from_utf8(plaintext)
+                {
+                    for line in text.lines() {
+                        let trimmed = line.trim();
+                        if !trimmed.is_empty() && is_valid_bridge(trimmed) {
+                            bridges.push(trimmed.to_string());
                         }
                     }
                 }
@@ -349,7 +354,8 @@ fn is_valid_bridge(entry: &str) -> bool {
         return false;
     }
     // Port must be numeric.
-    entry.rsplit(':')
+    entry
+        .rsplit(':')
         .next()
         .map(|p| p.parse::<u16>().is_ok())
         .unwrap_or(false)

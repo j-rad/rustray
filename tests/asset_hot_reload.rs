@@ -1,7 +1,7 @@
 // tests/asset_hot_reload.rs
 use rustray::app::router::geo_loader::GeoManager;
-use std::fs;
 use rustray::error::Result;
+use std::fs;
 
 // This test mocks the reload behavior without spinning up the full Router
 // because Router requires complex dependencies (OutboundManager, etc.).
@@ -41,21 +41,17 @@ async fn test_hot_reload_geoip() -> Result<()> {
     // They are in `src/app/router/assets.rs`, pub.
     // But `rustray` lib exposes them? Yes via `app::router::assets`.
 
-    use rustray::app::router::assets::{GeoIpList, GeoIp, Cidr};
     use prost::Message;
+    use rustray::app::router::assets::{Cidr, GeoIp, GeoIpList};
 
     let geoip_v1 = GeoIpList {
-        entry: vec![
-            GeoIp {
-                country_code: "TEST".to_string(),
-                cidr: vec![
-                    Cidr {
-                        ip: vec![1, 1, 1, 1],
-                        prefix: 32,
-                    }
-                ],
-            }
-        ]
+        entry: vec![GeoIp {
+            country_code: "TEST".to_string(),
+            cidr: vec![Cidr {
+                ip: vec![1, 1, 1, 1],
+                prefix: 32,
+            }],
+        }],
     };
     let mut buf = Vec::new();
     geoip_v1.encode(&mut buf)?;
@@ -72,17 +68,13 @@ async fn test_hot_reload_geoip() -> Result<()> {
 
     // 6. Update File (Version 2)
     let geoip_v2 = GeoIpList {
-        entry: vec![
-            GeoIp {
-                country_code: "TEST".to_string(),
-                cidr: vec![
-                    Cidr {
-                        ip: vec![2, 2, 2, 2],
-                        prefix: 32,
-                    }
-                ],
-            }
-        ]
+        entry: vec![GeoIp {
+            country_code: "TEST".to_string(),
+            cidr: vec![Cidr {
+                ip: vec![2, 2, 2, 2],
+                prefix: 32,
+            }],
+        }],
     };
     let mut buf2 = Vec::new();
     geoip_v2.encode(&mut buf2)?;

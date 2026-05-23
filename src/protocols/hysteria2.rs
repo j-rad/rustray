@@ -11,7 +11,8 @@ use crate::config::{Hysteria2OutboundSettings, Hysteria2Settings, LevelPolicy, O
 use crate::error::Result;
 use crate::outbounds::Outbound;
 use crate::router::Router;
-use crate::transport::{BoxedStream, quic};
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityStream, TrinityTransport};
+use crate::transport::quic;
 use async_trait::async_trait;
 use bytes::{BufMut, BytesMut};
 use std::future::Future;
@@ -129,7 +130,7 @@ impl BrutalCongestion {
         let target_rate_bps = upload_mbps * 1_000_000 / 8; // Convert Mbps to bytes/s
         let initial_cwnd = std::cmp::max(
             target_rate_bps * 100 / 1000, // 100ms of data
-            BRUTAL_MIN_CWND * 1500,                // Minimum of 4 packets
+            BRUTAL_MIN_CWND * 1500,       // Minimum of 4 packets
         );
 
         Self {
@@ -341,7 +342,7 @@ impl Http3Masquerade {
 pub async fn handle_inbound_stream(
     router: Arc<Router>,
     state: Arc<StatsManager>,
-    mut stream: BoxedStream,
+    mut stream: BoxedTrinityTransport,
     settings: Arc<Hysteria2Settings>,
     source: String,
 ) -> Result<()> {
@@ -436,7 +437,7 @@ pub async fn handle_inbound_stream(
         // We wrap the stream.
 
         // We need to re-box the stream because it's now a PrefixedStream.
-        let stream: BoxedStream = Box::new(stream);
+        let stream: BoxedTrinityTransport = Box::new(stream);
 
         // Add Obfuscation/Brutal if needed
         // For simplicity, passing directly for now as router expects BoxedStream.
@@ -513,10 +514,11 @@ impl<S: AsyncRead + Unpin> AsyncRead for BrutalStreamWrapper<S> {
 
         // If we have obfuscation, deobfuscate
         if let Poll::Ready(Ok(())) = &poll
-            && let Some(ref obfs) = self.obfs {
-                let filled = buf.filled_mut();
-                obfs.deobfuscate(filled);
-            }
+            && let Some(ref obfs) = self.obfs
+        {
+            let filled = buf.filled_mut();
+            obfs.deobfuscate(filled);
+        }
 
         poll
     }
@@ -610,6 +612,30 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for BrutalStreamWrapper<S> {
     }
 }
 
+impl<S: TrinityTransport + Unpin + Send + 'static> TrinityTransport for BrutalStreamWrapper<S> {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        self.inner.switch_carrier(new_carrier)
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        self.inner.apply_fragmentation()
+    }
+
+    fn handover(self, new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Ok(Self {
+            inner: self.inner.handover(new_tal)?,
+            congestion: self.congestion,
+            obfs: self.obfs,
+            pacing_sleep: self.pacing_sleep,
+            scratch_buf: self.scratch_buf,
+            conn_id: self.conn_id,
+        })
+    }
+}
+
 // Helper extension for BrutalCongestion to work synchronously in poll_write
 impl BrutalCongestion {
     fn refill_tokens_sync(&self) {
@@ -680,6 +706,26 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for PrefixedStream<S> {
     }
 }
 
+impl<S: TrinityTransport + Unpin + Send + 'static> TrinityTransport for PrefixedStream<S> {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        self.inner.switch_carrier(new_carrier)
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        self.inner.apply_fragmentation()
+    }
+
+    fn handover(self, new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Ok(Self {
+            inner: self.inner.handover(new_tal)?,
+            prefix: self.prefix,
+        })
+    }
+}
+
 // --- Connection State ---
 
 /// Connection state with authentication tracking
@@ -708,15 +754,19 @@ impl ConnectionState {
 
 /// Hysteria 2 Outbound Handler
 pub struct Hysteria2Outbound {
-    settings: Hysteria2OutboundSettings,
-    // Shared QUIC connection with auth state
+    settings: Arc<Hysteria2OutboundSettings>,
+    stream_settings: Option<crate::config::StreamSettings>,
     connection: Arc<Mutex<Option<ConnectionState>>>,
 }
 
 impl Hysteria2Outbound {
-    pub fn new(settings: Hysteria2OutboundSettings) -> Self {
+    pub fn new(
+        settings: Hysteria2OutboundSettings,
+        stream_settings: Option<crate::config::StreamSettings>,
+    ) -> Self {
         Self {
-            settings,
+            settings: Arc::new(settings),
+            stream_settings,
             connection: Arc::new(Mutex::new(None)),
         }
     }
@@ -749,7 +799,15 @@ impl Hysteria2Outbound {
         // Establish new connection
         let address = self.settings.address.parse()?;
         let server_name = self.settings.server_name.clone().unwrap_or_default();
-        let mut conn = quic::connect(address, &server_name, &[ALPN_HY2], None).await?;
+        let mut conn = quic::connect(
+            address,
+            &server_name,
+            &[ALPN_HY2],
+            None,
+            self.settings.pqc.as_ref(),
+            self.stream_settings.as_ref().and_then(|s| s.finalmask.as_ref()).and_then(|fm| fm.quic_params.clone()),
+        )
+        .await?;
 
         // Authenticate the new connection
         self.authenticate_connection(&mut conn).await?;
@@ -799,22 +857,19 @@ impl Hysteria2Outbound {
 
 #[async_trait]
 impl Outbound for Hysteria2Outbound {
-    async fn handle<'a>(
-        &'a self,
-        mut stream: BoxedStream,
+    async fn handle(
+        &self,
+        mut stream: BoxedTrinityTransport,
         host: String,
         port: u16,
         _policy: Arc<LevelPolicy>,
     ) -> Result<()> {
         let mut wrapped_out = self.dial(host, port).await?;
-
-        // Relay
-        crate::transport::copy_bidirectional(&mut stream, &mut wrapped_out).await?;
-
+        let _ = tokio::io::copy_bidirectional(&mut stream, &mut wrapped_out).await;
         Ok(())
     }
 
-    async fn dial(&self, host: String, port: u16) -> Result<BoxedStream> {
+    async fn dial(&self, host: String, port: u16) -> Result<BoxedTrinityTransport> {
         // Get authenticated connection (auth happens once per connection)
         let mut connection = self.get_or_auth_connection().await?;
 
@@ -844,7 +899,7 @@ impl Outbound for Hysteria2Outbound {
         let upload_limit = self.settings.up_mbps.unwrap_or(DEFAULT_UP_MBPS);
         let wrapped_out = BrutalStreamWrapper::new(out_stream, upload_limit, obfs, &host, port);
 
-        Ok(Box::new(wrapped_out) as BoxedStream)
+        Ok(Box::new(wrapped_out) as BoxedTrinityTransport)
     }
 
     async fn handle_packet(

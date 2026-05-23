@@ -5,7 +5,7 @@
 //! Each DNS label is max 63 bytes; full domain name max 253 bytes.
 //! Uses zstd compression before encoding to maximize throughput.
 
-use bytes::{BytesMut, BufMut};
+use bytes::{BufMut, BytesMut};
 use std::io::{self, Error, ErrorKind};
 
 /// Maximum bytes per DNS label
@@ -51,7 +51,12 @@ pub fn base32_decode(encoded: &str) -> io::Result<Vec<u8>> {
             'A'..='Z' => ch as u8 - b'A',
             '2'..='7' => ch as u8 - b'2' + 26,
             '.' | '-' => continue, // Skip DNS separators
-            _ => return Err(Error::new(ErrorKind::InvalidData, format!("Invalid Base32 char: {}", ch))),
+            _ => {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    format!("Invalid Base32 char: {}", ch),
+                ));
+            }
         };
 
         buffer = (buffer << 5) | value as u64;
@@ -69,8 +74,7 @@ pub fn base32_decode(encoded: &str) -> io::Result<Vec<u8>> {
 /// Compress data with zstd then Base32-encode into DNS labels.
 pub fn encode_dns_payload(data: &[u8], base_domain: &str) -> io::Result<Vec<u8>> {
     // 1. Compress
-    let compressed = zstd::encode_all(data, 3)
-        .map_err(Error::other)?;
+    let compressed = zstd::encode_all(data, 3).map_err(Error::other)?;
 
     // 2. Base32 encode
     let encoded = base32_encode(&compressed);
@@ -166,17 +170,17 @@ pub fn build_dns_query(data: &[u8], base_domain: &str, tx_id: u16) -> io::Result
     let mut packet = BytesMut::with_capacity(12 + qname.len() + 4);
 
     // DNS Header
-    packet.put_u16(tx_id);        // Transaction ID
-    packet.put_u16(0x0100);       // Flags: standard query, RD=1
-    packet.put_u16(1);            // QDCOUNT
-    packet.put_u16(0);            // ANCOUNT
-    packet.put_u16(0);            // NSCOUNT
-    packet.put_u16(0);            // ARCOUNT
+    packet.put_u16(tx_id); // Transaction ID
+    packet.put_u16(0x0100); // Flags: standard query, RD=1
+    packet.put_u16(1); // QDCOUNT
+    packet.put_u16(0); // ANCOUNT
+    packet.put_u16(0); // NSCOUNT
+    packet.put_u16(0); // ARCOUNT
 
     // Question section
     packet.extend_from_slice(&qname);
-    packet.put_u16(16);           // QTYPE: TXT
-    packet.put_u16(1);            // QCLASS: IN
+    packet.put_u16(16); // QTYPE: TXT
+    packet.put_u16(1); // QCLASS: IN
 
     Ok(packet.to_vec())
 }
@@ -187,22 +191,22 @@ pub fn build_dns_response(data: &[u8], tx_id: u16, qname: &[u8]) -> Vec<u8> {
 
     // DNS Header
     packet.put_u16(tx_id);
-    packet.put_u16(0x8180);       // Flags: response, RD=1, RA=1
-    packet.put_u16(1);            // QDCOUNT
-    packet.put_u16(1);            // ANCOUNT
-    packet.put_u16(0);            // NSCOUNT
-    packet.put_u16(0);            // ARCOUNT
+    packet.put_u16(0x8180); // Flags: response, RD=1, RA=1
+    packet.put_u16(1); // QDCOUNT
+    packet.put_u16(1); // ANCOUNT
+    packet.put_u16(0); // NSCOUNT
+    packet.put_u16(0); // ARCOUNT
 
     // Question (echo)
     packet.extend_from_slice(qname);
-    packet.put_u16(16);           // QTYPE: TXT
-    packet.put_u16(1);            // QCLASS: IN
+    packet.put_u16(16); // QTYPE: TXT
+    packet.put_u16(1); // QCLASS: IN
 
     // Answer: pointer to QNAME
-    packet.put_u16(0xC00C);       // Name pointer to offset 12
-    packet.put_u16(16);           // TYPE: TXT
-    packet.put_u16(1);            // CLASS: IN
-    packet.put_u32(60);           // TTL
+    packet.put_u16(0xC00C); // Name pointer to offset 12
+    packet.put_u16(16); // TYPE: TXT
+    packet.put_u16(1); // CLASS: IN
+    packet.put_u32(60); // TTL
 
     // RDATA: TXT records (each segment max 255 bytes)
     let mut rdata = BytesMut::new();

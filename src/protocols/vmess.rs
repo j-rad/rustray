@@ -4,8 +4,9 @@ use crate::config::LevelPolicy;
 use crate::config::{StreamSettings, VmessOutboundSettings, VmessSettings};
 use crate::error::Result;
 use crate::outbounds::Outbound;
+use crate::protocols::flow_trait::{BoxedTrinityTransport, TrinityTransport};
+use std::io;
 use crate::router::Router;
-use crate::transport::BoxedStream;
 use aes_gcm::{
     Aes128Gcm, Nonce,
     aead::{Aead, KeyInit},
@@ -67,7 +68,7 @@ impl NonceGenerator {
 pub async fn listen_stream(
     router: Arc<Router>,
     state: Arc<StatsManager>,
-    stream: BoxedStream,
+    stream: BoxedTrinityTransport,
     settings: VmessSettings,
     source: String,
 ) -> Result<()> {
@@ -79,7 +80,7 @@ pub async fn listen_stream(
 pub async fn handle_inbound(
     router: Arc<Router>,
     state: Arc<StatsManager>,
-    mut stream: BoxedStream,
+    mut stream: BoxedTrinityTransport,
     settings: &VmessSettings,
     source: String,
 ) -> Result<()> {
@@ -231,12 +232,12 @@ pub async fn handle_inbound(
     let resp_iv = Md5::digest(req_iv).into();
 
     let vmess_stream = VmessStream::new(stream, req_key, req_iv, resp_key, resp_iv);
-
+ 
     let user_level = user.level.unwrap_or(0);
     let policy = state.policy_manager.get_policy(user_level);
-
+ 
     router
-        .route_stream(Box::new(vmess_stream), host, port, source, policy)
+        .route_stream(Box::new(vmess_stream) as BoxedTrinityTransport, host, port, source, policy)
         .await
 }
 
@@ -333,7 +334,7 @@ enum ReadState {
 
 // #[allow(dead_code)] // Removed as we are implementing it
 pub struct VmessStream {
-    stream: BoxedStream,
+    stream: BoxedTrinityTransport,
     enc_key: [u8; 16],
     enc_nonce: NonceGenerator,
 
@@ -347,9 +348,36 @@ pub struct VmessStream {
     write_buffer: BytesMut, // Holds encrypted data waiting to be sent
 }
 
+impl TrinityTransport for VmessStream {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+
+    fn switch_carrier(&mut self, _new_carrier: BoxedTrinityTransport) -> io::Result<()> {
+        self.stream.switch_carrier(_new_carrier)
+    }
+
+    fn apply_fragmentation(&mut self) -> io::Result<()> {
+        self.stream.apply_fragmentation()
+    }
+
+    fn handover(self, new_tal: BoxedTrinityTransport) -> Result<Self> {
+        Ok(Self {
+            stream: self.stream.handover(new_tal)?,
+            enc_key: self.enc_key,
+            enc_nonce: self.enc_nonce,
+            dec_key: self.dec_key,
+            dec_nonce: self.dec_nonce,
+            read_state: self.read_state,
+            read_buffer: self.read_buffer,
+            decrypted_buffer: self.decrypted_buffer,
+            write_buffer: self.write_buffer,
+        })
+    }
+}
+
 impl VmessStream {
     pub fn new(
-        stream: BoxedStream,
+        stream: BoxedTrinityTransport,
         dec_key: [u8; 16],
         dec_iv: [u8; 16],
         enc_key: [u8; 16],
@@ -591,7 +619,7 @@ impl VmessOutbound {
 impl Outbound for VmessOutbound {
     async fn handle(
         &self,
-        mut in_stream: BoxedStream,
+        mut in_stream: BoxedTrinityTransport,
         host: String,
         port: u16,
         _policy: Arc<LevelPolicy>,
@@ -601,7 +629,7 @@ impl Outbound for VmessOutbound {
         Ok(())
     }
 
-    async fn dial(&self, host: String, port: u16) -> Result<BoxedStream> {
+    async fn dial(&self, host: String, port: u16) -> Result<BoxedTrinityTransport> {
         // Use transport::connect for TLS/WS/gRPC support
         let stream_settings = self.stream_settings.clone().unwrap_or_default();
         let mut out_stream = crate::transport::connect(
@@ -681,8 +709,8 @@ impl Outbound for VmessOutbound {
         // We write encrypted REQUEST (Enc_key = req_key)
         // We read encrypted RESPONSE (Dec_key = resp_key)
         let vmess_stream =
-            VmessStream::new(Box::new(out_stream), resp_key, resp_iv, req_key, req_iv);
-        Ok(Box::new(vmess_stream) as BoxedStream)
+            VmessStream::new(Box::new(out_stream) as BoxedTrinityTransport, resp_key, resp_iv, req_key, req_iv);
+        Ok(Box::new(vmess_stream) as BoxedTrinityTransport)
     }
 }
 // --- Crypto Helpers ---

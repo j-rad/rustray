@@ -28,3 +28,4 @@ pub async fn resolve_stun(_stun_server: &str) -> Result<SocketAddr> {
         "STUN resolution temporarily disabled due to dependency issues"
     ))
 }
+pub mod vless_codec;
